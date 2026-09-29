@@ -1,0 +1,535 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // ---------------------------------------------------------------------------------
+    // Data model (see src/lib/profile-fields.ts)
+    //   users/{uid}         PUBLIC profile, readable by any signed-in user. Strict field allowlist:
+    //                       no phone, email, DOB, exact GPS, block lists, push tokens, premium...
+    //   userPrivate/{uid}   PRIVATE, owner-only read/write: phone, email, dob, exact lat/lng,
+    //                       blockedUsers, mutedMatches, fcmTokens, notification prefs, premium,
+    //                       message-rate window, verification selfie URL.
+    //   moderation/{uid}    Moderator-only (Admin SDK): restricted / suspended / banned state.
+    // ---------------------------------------------------------------------------------
+
+    function privPath(uid) {
+      return /databases/$(database)/documents/userPrivate/$(uid);
+    }
+
+    function blockedListOf(uid) {
+      return exists(privPath(uid)) ? get(privPath(uid)).data.get('blockedUsers', []) : [];
+    }
+
+    // False for accounts a moderator has restricted / suspended / banned.
+    function isPremium(uid) {
+      return exists(privPath(uid)) && get(privPath(uid)).data.get('premium', false) == true;
+    }
+
+    function notModerated(uid) {
+      let p = /databases/$(database)/documents/moderation/$(uid);
+      return !exists(p) || !(get(p).data.get('status', 'active') in ['restricted', 'suspended', 'banned']);
+    }
+
+    // False while uid's chat is locked (5 strikes for non-friendly / romantic / sexual messages
+    // -> 5 day lock). moderation/{uid}.chatLockedUntil is epoch ms, written only by
+    // /api/groq/message-moderation via the Admin SDK.
+    function notChatLocked(uid) {
+      let p = /databases/$(database)/documents/moderation/$(uid);
+      return !exists(p) || get(p).data.get('chatLockedUntil', 0) < request.time.toMillis();
+    }
+
+    // The uid of "the other participant" in matchId, from request.auth.uid's perspective.
+    function otherUidIn(matchId) {
+      let matchUsers = get(/databases/$(database)/documents/matches/$(matchId)).data.users;
+      return matchUsers[0] == request.auth.uid ? matchUsers[1] : matchUsers[0];
+    }
+
+    // True unless either participant in matchId has blocked the other (mirrors sendMessage()).
+    function notBlocked(matchId) {
+      let otherUid = otherUidIn(matchId);
+      return !(otherUid in blockedListOf(request.auth.uid))
+        && !(request.auth.uid in blockedListOf(otherUid));
+    }
+
+    // True unless either of the two uids has blocked the other (used for likes, where there
+    // is no match doc yet).
+    function notBlockedPair(a, b) {
+      return !(b in blockedListOf(a)) && !(a in blockedListOf(b));
+    }
+
+    // Both users have a like/superlike on file for each other and neither has blocked the other.
+    function mutualLike(users) {
+      let me = request.auth.uid;
+      let other = users[0] == me ? users[1] : users[0];
+      let mine = /databases/$(database)/documents/likes/$(me + '_' + other);
+      let theirs = /databases/$(database)/documents/likes/$(other + '_' + me);
+      return exists(mine) && exists(theirs)
+        && get(mine).data.type in ['like', 'superlike']
+        && get(theirs).data.type in ['like', 'superlike']
+        && notBlockedPair(me, other);
+    }
+
+    // The pair has an interest doc (either direction) that the RECIPIENT accepted, and neither
+    // side has blocked the other. This is what unlocks a chat (matches/{pair}).
+    function acceptedInterest(users) {
+      let me = request.auth.uid;
+      let other = users[0] == me ? users[1] : users[0];
+      let a = /databases/$(database)/documents/interests/$(me + '_' + other);
+      let b = /databases/$(database)/documents/interests/$(other + '_' + me);
+      return ((exists(a) && get(a).data.status == 'accepted')
+              || (exists(b) && get(b).data.status == 'accepted'))
+        && notBlockedPair(me, other);
+    }
+
+    function acceptedPremiumMessage(users) {
+      let me = request.auth.uid;
+      let other = users[0] == me ? users[1] : users[0];
+      let a = /databases/$(database)/documents/premiumMessages/$(me + '_' + other);
+      let b = /databases/$(database)/documents/premiumMessages/$(other + '_' + me);
+      return ((exists(a) && get(a).data.status == 'accepted')
+              || (exists(b) && get(b).data.status == 'accepted'))
+        && notBlockedPair(me, other);
+    }
+
+    // Guards msgWindowStart/msgWindowCount (new-account spam throttle, see sendMessage()):
+    // count may only go up by 1 inside the window, or roll over to a fresh window (count = 1)
+    // once RATE_WINDOW_MS has really elapsed. Stops a client resetting its own quota.
+    function messageWindowUpdateValid() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let touched = after.diff(before).affectedKeys().hasAny(['msgWindowStart', 'msgWindowCount']);
+      let prevStart = before.get('msgWindowStart', 0);
+      let prevCount = before.get('msgWindowCount', 0);
+      let CLOCK_SKEW_TOLERANCE_MS = 5 * 60 * 1000;
+      return !touched || (
+        after.msgWindowStart is int && after.msgWindowCount is int && (
+          (after.msgWindowStart == prevStart && after.msgWindowCount == prevCount + 1)
+          || (
+            after.msgWindowCount == 1
+            && after.msgWindowStart > prevStart
+            && after.msgWindowStart <= request.time.toMillis() + CLOCK_SKEW_TOLERANCE_MS
+            && request.time.toMillis() - prevStart >= 60000 // keep in sync with RATE_WINDOW_MS
+          )
+        )
+      );
+    }
+
+    // True if uid is allowed to send messages: face-verified, or not male (verification is
+    // only required for male accounts — mirrors isVerified() in src/lib/firestore.ts).
+    function canMessage(uid) {
+      let u = get(/databases/$(database)/documents/users/$(uid)).data;
+      return u.get('verified', false) == true || u.get('gender', '') != 'Male';
+    }
+
+    // The blue check is only ever granted by /api/groq/face-verify (Admin SDK). Clients can
+    // request "pending" but can never set verified=true / verificationStatus="verified".
+    function verificationNotSelfEscalated() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return after.get('verified', false) == before.get('verified', false)
+        && after.get('verificationStatus', 'none') != 'verified';
+    }
+
+    // ---------------- Public profile ----------------
+    match /users/{uid} {
+      allow read: if signedIn();
+
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.get('verified', false) == false
+        && request.resource.data.get('moderated', false) == false
+        && request.resource.data.keys().hasOnly([
+          'uid', 'name', 'age', 'gender', 'interestedIn', 'relationship', 'bio', 'expectations',
+          'work', 'drinking', 'smoking', 'location', 'approxLatitude', 'approxLongitude', 'job',
+          'interests', 'images', 'verified', 'verificationStatus', 'online', 'lastSeenAt',
+          'hideLastSeen', 'onlyVerifiedCanMessage', 'profileComplete', 'createdAt', 'updatedAt',
+          'profileFor', 'maritalStatus', 'heightCm', 'religion', 'community', 'motherTongue',
+          'education', 'annualIncome', 'diet', 'state', 'createdBy', 'occupation', 'nativePlace',
+          'willingToRelocate', 'nriStatus', 'countryOfResidence', 'familyDetails', 'partnerPreferences',
+          'star', 'rashi', 'manglik'
+        ])
+        && request.resource.data.get('uid', uid) == uid;
+
+      // A field allowlist (hasOnly) means phone/email/DOB/exact location can never be written
+      // back onto the world-readable doc, even by a modified client.
+      allow update: if signedIn() && request.auth.uid == uid
+        && verificationNotSelfEscalated()
+        && request.resource.data.get('moderated', false) == resource.data.get('moderated', false)
+        && request.resource.data.get('uid', uid) == uid
+        && request.resource.data.get('createdAt', 0) == resource.data.get('createdAt', 0)
+        && request.resource.data.keys().hasOnly([
+          'uid', 'name', 'age', 'gender', 'interestedIn', 'relationship', 'bio', 'expectations',
+          'work', 'drinking', 'smoking', 'location', 'approxLatitude', 'approxLongitude', 'job',
+          'interests', 'images', 'verified', 'verificationStatus', 'online', 'lastSeenAt',
+          'hideLastSeen', 'onlyVerifiedCanMessage', 'profileComplete', 'createdAt', 'updatedAt',
+          'profileFor', 'maritalStatus', 'heightCm', 'religion', 'community', 'motherTongue',
+          'education', 'annualIncome', 'diet', 'state', 'createdBy', 'occupation', 'nativePlace',
+          'willingToRelocate', 'nriStatus', 'countryOfResidence', 'familyDetails', 'partnerPreferences',
+          'star', 'rashi', 'manglik',
+          'moderated'
+        ]);
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    // ---------------- Private profile ----------------
+    match /userPrivate/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn() && request.auth.uid == uid
+        && (!request.resource.data.keys().hasAny(['msgWindowStart', 'msgWindowCount'])
+            || (request.resource.data.get('msgWindowCount', 0) == 1
+                && request.resource.data.get('msgWindowStart', 0) <= request.time.toMillis() + 300000));
+      allow update: if signedIn() && request.auth.uid == uid && messageWindowUpdateValid();
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    // Moderation state, rate-limit counters, photo hashes, abuse review queue, audit log,
+    // blocked identities: server (Admin SDK) only. No client rules = denied.
+
+    // Text-screening telemetry from the client (feeds the admin "abuse signals" tab).
+    match /abuseSignals/{id} {
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'context', 'flags', 'blocked', 'createdAt'])
+        && request.resource.data.flags is list && request.resource.data.flags.size() <= 10;
+      allow read, update, delete: if false;
+    }
+
+    // ---------------- One-profile-per-phone/email ----------------
+    // Doc id is the phone/email itself; a user may only claim their OWN verified
+    // phone_number/email token claim; first claim wins; identities of banned users
+    // (blockedIdentities/{id}, written by moderators) can't be claimed again.
+    match /phoneIndex/{phone} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.auth.token.phone_number == phone
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'createdAt'])
+        && !exists(/databases/$(database)/documents/blockedIdentities/$(phone));
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      allow update: if false;
+    }
+
+    match /emailIndex/{email} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.auth.token.email == email
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'createdAt'])
+        && !exists(/databases/$(database)/documents/blockedIdentities/$(email));
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      allow update: if false;
+    }
+
+    // Reports are created through POST /api/reports (validation, dedupe, rate limits,
+    // escalation) and reviewed in /admin. Clients have no direct access.
+    match /reports/{reportId} {
+      allow read, create, update, delete: if false;
+    }
+
+    // ---------------- Likes ----------------
+    match /likes/{likeId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['from', 'to', 'type', 'createdAt'])
+        && request.resource.data.from == request.auth.uid
+        && request.resource.data.to is string
+        && request.resource.data.to != request.auth.uid
+        && likeId == request.auth.uid + '_' + request.resource.data.to
+        && request.resource.data.type in ['like', 'superlike', 'pass']
+        && notBlockedPair(request.resource.data.from, request.resource.data.to)
+        && notModerated(request.auth.uid);
+      allow update: if false;
+      allow delete: if signedIn()
+        && resource.data.from == request.auth.uid
+        && !exists(/databases/$(database)/documents/matches/$(resource.data.from + '_' + resource.data.to))
+        && !exists(/databases/$(database)/documents/matches/$(resource.data.to + '_' + resource.data.from));
+    }
+
+    // ---------------- Interests (Send Interest -> Accept / Decline) ----------------
+    // interests/{from}_{to}. Sender creates it as 'pending'. Only the recipient can accept or
+    // decline it (status + updatedAt are the only fields that may change). A sender can
+    // withdraw a still-pending interest by deleting it; a declined/accepted one is permanent,
+    // so a declined person can't keep re-sending.
+    match /interests/{interestId} {
+      allow read: if signedIn()
+        && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['from', 'to', 'status', 'message', 'createdAt', 'updatedAt'])
+        && request.resource.data.from == request.auth.uid
+        && request.resource.data.to is string
+        && request.resource.data.to != request.auth.uid
+        && interestId == request.auth.uid + '_' + request.resource.data.to
+        && request.resource.data.status == 'pending'
+        && (!request.resource.data.keys().hasAny(['message'])
+            || (request.resource.data.message is string && request.resource.data.message.size() <= 200))
+        && notBlockedPair(request.resource.data.from, request.resource.data.to)
+        && notModerated(request.auth.uid);
+
+      allow update: if signedIn()
+        && resource.data.to == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.status in ['accepted', 'declined']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+        && notModerated(request.auth.uid);
+
+      allow delete: if signedIn()
+        && resource.data.from == request.auth.uid
+        && resource.data.status == 'pending';
+    }
+
+    // ---------------- Shortlist (private bookmarks) ----------------
+    match /shortlists/{shortlistId} {
+      allow read: if signedIn() && resource.data.owner == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['owner', 'target', 'createdAt'])
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.target is string
+        && request.resource.data.target != request.auth.uid
+        && shortlistId == request.auth.uid + '_' + request.resource.data.target;
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.owner == request.auth.uid;
+    }
+
+    // ---------------- Profile views ("Viewed you") ----------------
+    // One doc per viewer/target pair. The viewer writes it; both sides can read it.
+    match /profileViews/{viewId} {
+      allow read: if signedIn()
+        && (resource.data.viewer == request.auth.uid || resource.data.target == request.auth.uid)
+        && isPremium(request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['viewer', 'target', 'viewedAt', 'count'])
+        && request.resource.data.viewer == request.auth.uid
+        && request.resource.data.target is string
+        && request.resource.data.target != request.auth.uid
+        && viewId == request.auth.uid + '_' + request.resource.data.target
+        && request.resource.data.count is int
+        && notBlockedPair(request.auth.uid, request.resource.data.target)
+        && notModerated(request.auth.uid);
+      allow update: if signedIn()
+        && resource.data.viewer == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewedAt', 'count'])
+        && request.resource.data.count is int;
+      allow delete: if signedIn() && resource.data.viewer == request.auth.uid;
+    }
+
+    // ---------------- Trust ratings ----------------
+    // Separate from /likes above. `likes` (0-10) here is a score any signed-in user can
+    // leave; `stars` (0-10) is a trust rating ONLY a woman may leave — enforced server-side
+    // (not just in the app UI) by checking the writer's own gender on their public profile,
+    // so a modified client can't grant itself star-rating power.
+    function isFemale(uid) {
+      let p = /databases/$(database)/documents/users/$(uid);
+      return exists(p) && get(p).data.get('gender', '') == 'Female';
+    }
+
+    match /ratings/{ratingId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && request.resource.data.keys().hasOnly(['from', 'to', 'likes', 'stars', 'createdAt', 'updatedAt'])
+        && request.resource.data.from == request.auth.uid
+        && request.resource.data.to is string
+        && request.resource.data.to != request.auth.uid
+        && ratingId == request.auth.uid + '_' + request.resource.data.to
+        && request.resource.data.likes is int && request.resource.data.likes >= 0 && request.resource.data.likes <= 10
+        && (!request.resource.data.keys().hasAny(['stars']) || isFemale(request.auth.uid))
+        && (!request.resource.data.keys().hasAny(['stars'])
+            || (request.resource.data.stars is int && request.resource.data.stars >= 0 && request.resource.data.stars <= 10))
+        && notBlockedPair(request.resource.data.from, request.resource.data.to)
+        && notModerated(request.auth.uid);
+      allow delete: if signedIn() && resource.data.from == request.auth.uid;
+    }
+
+    // ---------------- Matches ----------------
+    match /matches/{matchId} {
+      allow get: if signedIn() && request.auth.uid in matchId.split('_');
+      allow list: if signedIn() && request.auth.uid in resource.data.users;
+
+      // A chat (match doc) can only be created once one side has ACCEPTED the other's interest
+      // (and neither has blocked the other) — otherwise anyone could fabricate a "match" with
+      // any user and message them.
+      allow create: if signedIn()
+        && request.resource.data.users.size() == 2
+        && request.auth.uid in request.resource.data.users
+        && request.resource.data.users[0] != request.resource.data.users[1]
+        && matchId in [
+          request.resource.data.users[0] + '_' + request.resource.data.users[1],
+          request.resource.data.users[1] + '_' + request.resource.data.users[0]
+        ]
+        && notModerated(request.auth.uid)
+        && (acceptedInterest(request.resource.data.users) || acceptedPremiumMessage(request.resource.data.users));
+      // Participants may update chat metadata but never change WHO is in the match.
+      allow update: if signedIn() && request.auth.uid in resource.data.users
+        && request.resource.data.users == resource.data.users;
+
+      match /messages/{messageId} {
+        allow read: if signedIn() && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users;
+
+        // Sender must be a participant, verified (blue check) if male, not moderated, and
+        // neither side may have blocked the other. If the recipient set onlyVerifiedCanMessage,
+        // the sender must be verified regardless of gender (see below). Text is length-capped.
+        allow create: if signedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users
+          && request.resource.data.from == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.keys().hasOnly(['text', 'from', 'createdAt', 'delivered', 'read', 'participants', 'replyTo'])
+          && canMessage(request.auth.uid)
+          && (
+            !get(/databases/$(database)/documents/users/$(otherUidIn(matchId))).data.get('onlyVerifiedCanMessage', false)
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('verified', false) == true
+          )
+          && notModerated(request.auth.uid)
+          && notChatLocked(request.auth.uid)
+          && notBlocked(matchId);
+
+        allow update: if signedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users
+          && (
+            request.resource.data.read == true
+            || request.resource.data.delivered == true
+            || (
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+              && request.resource.data.reactions.diff(resource.data.get('reactions', {})).affectedKeys().hasOnly([request.auth.uid])
+            )
+            || (
+              request.auth.uid == resource.data.from
+              && notChatLocked(request.auth.uid)
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
+              && request.resource.data.text is string && request.resource.data.text.size() <= 2000
+            )
+            || (
+              request.auth.uid == resource.data.from
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'deleted', 'deletedAt'])
+              && request.resource.data.deleted == true
+            )
+          );
+        allow delete: if false;
+      }
+
+      match /games/{gameId} {
+        allow read: if signedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users;
+        allow create, update: if signedIn()
+          && gameId == 'tictactoe'
+          && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users
+          && request.resource.data.players.keys().hasOnly(get(/databases/$(database)/documents/matches/$(matchId)).data.users)
+          && notBlocked(matchId);
+        allow delete: if false;
+      }
+
+      match /typing/{userId} {
+        allow read: if signedIn() && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users;
+        allow create, update: if signedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users
+          && request.resource.data.userId == request.auth.uid;
+        allow delete: if signedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users
+          && resource.data.userId == request.auth.uid;
+      }
+    }
+
+    // ---------------- Phase 3 contact requests ----------------
+    match /contactRequests/{requestId} {
+      allow read: if signedIn() && (resource.data.requester == request.auth.uid || resource.data.target == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['requester','target','type','status','createdAt','updatedAt'])
+        && request.resource.data.requester == request.auth.uid
+        && request.resource.data.target is string
+        && request.resource.data.target != request.auth.uid
+        && request.resource.data.type in ['phone','whatsapp']
+        && request.resource.data.status == 'pending'
+        && isPremium(request.auth.uid)
+        && notBlockedPair(request.auth.uid, request.resource.data.target);
+      allow update: if signedIn()
+        && resource.data.target == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt','sharedPhone'])
+        && request.resource.data.status in ['approved','declined']
+        && (!request.resource.data.keys().hasAny(['sharedPhone']) || request.resource.data.sharedPhone is string);
+      allow delete: if false;
+    }
+
+    // ---------------- Private photo access requests ----------------
+    match /photoAccessRequests/{requestId} {
+      allow read: if signedIn() && (resource.data.requester == request.auth.uid || resource.data.owner == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['requester','owner','status','createdAt','updatedAt'])
+        && request.resource.data.requester == request.auth.uid
+        && request.resource.data.owner is string
+        && request.resource.data.owner != request.auth.uid
+        && request.resource.data.status == 'pending'
+        && notBlockedPair(request.auth.uid, request.resource.data.owner);
+      allow update: if signedIn()
+        && resource.data.owner == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt','photoUrls'])
+        && request.resource.data.status in ['approved','declined']
+        && (!request.resource.data.keys().hasAny(['photoUrls']) || (request.resource.data.photoUrls is list && request.resource.data.photoUrls.size() <= 6));
+      allow delete: if false;
+    }
+
+    // ---------------- Premium spotlight ----------------
+    match /spotlights/{uid} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['uid','startedAt','expiresAt'])
+        && request.resource.data.uid == uid
+        && isPremium(uid)
+        && request.resource.data.expiresAt > request.time.toMillis()
+        && request.resource.data.expiresAt <= request.time.toMillis() + 3600000;
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    // ---------------- Premium messaging ----------------
+    match /premiumMessages/{messageId} {
+      allow read: if signedIn() && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['from','to','text','status','createdAt','updatedAt'])
+        && request.resource.data.from == request.auth.uid
+        && request.resource.data.to is string
+        && request.resource.data.to != request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 500
+        && request.resource.data.status == 'pending'
+        && isPremium(request.auth.uid)
+        && notBlockedPair(request.auth.uid, request.resource.data.to)
+        && notModerated(request.auth.uid);
+      allow update: if signedIn()
+        && resource.data.to == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt'])
+        && request.resource.data.status in ['accepted','declined'];
+      allow delete: if false;
+    }
+
+    // ---------------- Parent / family accounts ----------------
+    match /familyAccounts/{id} {
+      allow read: if signedIn() && resource.data.owner == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.keys().hasOnly(['id','owner','memberUid','memberEmail','memberName','role','permissions','status','createdAt','updatedAt'])
+        && request.resource.data.status == 'invited';
+      allow update, delete: if signedIn() && resource.data.owner == request.auth.uid;
+    }
+
+    // ---------------- Activity notifications ----------------
+    // Created for OTHER users only via POST /api/notifications/create (verified server-side).
+    // A client may only read/mark-read its own.
+    match /notifications/{notificationId} {
+      allow read: if signedIn() && request.auth.uid == resource.data.userId;
+      allow create: if false;
+      allow update: if signedIn() && request.auth.uid == resource.data.userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+        && request.resource.data.read == true;
+      allow delete: if false;
+    }
+  }
+}

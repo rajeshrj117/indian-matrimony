@@ -1,0 +1,38 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Signed-in users can view profile photos (needed to show other people's photos).
+    // Only the owner can upload into their own folder: JPEG/PNG/WebP/HEIC only (no SVG or
+    // other scriptable types), up to 8MB. Uploads are then checked by /api/groq/photo-policy.
+    match /profile-photos/{uid}/{fileName} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp|heic|heif)');
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Verification selfies are sensitive: only the owner can read, write or delete their own.
+    match /verification-selfies/{uid}/{fileName} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp|heic|heif)');
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
+
+    // Private gallery photos are not listed on public profiles. The download URL is only
+    // surfaced to a requester after the owner approves a photoAccessRequests document.
+    // Storage remains owner-write only; the app controls disclosure through Firestore.
+    match /private-photos/{uid}/{fileName} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp|heic|heif)');
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }

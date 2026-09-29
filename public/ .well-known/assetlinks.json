@@ -1,0 +1,9 @@
+
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.vercel.flirty_2.twa",
+        "sha256_cert_fingerprints": ["3C:C6:F9:30:72:63:E6:1A:DA:57:B0:5D:B4:03:3A:F5:5B:EA:B7:B6:10:29:28:11:81:A8:77:9C:BF:CD:08:2C"]
+      }
+    }]

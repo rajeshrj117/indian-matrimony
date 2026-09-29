@@ -1,0 +1,248 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Bell, Search, SlidersHorizontal, X } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
+import {
+  fetchSearchPool, getActiveSpotlights, listenActivityNotifications, listenInterestStates, listenShortlist, type InterestState,
+} from '@/lib/firestore';
+import {
+  activeFilterCount, defaultFiltersFor, matchesFilters, MUTUAL_MATCH_MIN, mutualCompatibility, normalizeFilters,
+  rankByCompatibility, rankProfiles, type SearchFilters,
+} from '@/lib/matrimony';
+import { useInterestActions } from '@/lib/useInterestActions';
+import { APP_NAME } from '@/lib/brand';
+import FilterSheet from '@/components/FilterSheet';
+import ProfileCard from '@/components/ProfileCard';
+import Toast from '@/components/Toast';
+import type { Profile } from '@/lib/types';
+
+const PAGE_SIZE = 20;
+const STORAGE_KEY = 'matrimony_search_filters_v1';
+const NONE: InterestState = { state: 'none' };
+
+function loadSaved(): SearchFilters | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? normalizeFilters(JSON.parse(raw)) : null;
+  } catch {
+    return null;
+  }
+}
+
+export default function SearchScreen() {
+  const router = useRouter();
+  const { user, profile } = useAuth();
+  const actions = useInterestActions();
+
+  const base = useMemo(() => defaultFiltersFor(profile), [profile]);
+  const [filters, setFilters] = useState<SearchFilters | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [pool, setPool] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [visible, setVisible] = useState(PAGE_SIZE);
+  const [states, setStates] = useState<Record<string, InterestState>>({});
+  const [shortlist, setShortlist] = useState<Set<string>>(new Set());
+  const [hasUnread, setHasUnread] = useState(false);
+  const [spotlights, setSpotlights] = useState<Set<string>>(new Set());
+
+  // Filters: restore what the member last used, otherwise start from an age window that fits them.
+  useEffect(() => {
+    if (!profile || filters) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time init from localStorage + profile
+    setFilters(loadSaved() ?? base);
+  }, [profile, base, filters]);
+
+  useEffect(() => {
+    if (!filters) return;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(filters)); } catch { /* storage unavailable */ }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset paging when filters change
+    setVisible(PAGE_SIZE);
+  }, [filters]);
+
+  useEffect(() => {
+    if (!user || !profile) return;
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch on mount
+    setLoading(true);
+    Promise.all([fetchSearchPool(profile), getActiveSpotlights()])
+      .then(([list, boosts]) => { if (!cancelled) { setPool(list); setSpotlights(new Set(boosts.map(b => b.uid))); setLoadError(false); } })
+      .catch((err) => { console.error(err); if (!cancelled) setLoadError(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+    // Only reload the pool when the account or who they're looking for changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, profile?.interestedIn]);
+
+  useEffect(() => {
+    if (!user) return;
+    const u1 = listenInterestStates(user.uid, setStates);
+    const u2 = listenShortlist(user.uid, (items) => setShortlist(new Set(items.map((i) => i.target))));
+    const u3 = listenActivityNotifications(user.uid, (items) => setHasUnread(items.some((n) => !n.read)));
+    return () => { u1(); u2(); u3(); };
+  }, [user]);
+
+  const results = useMemo(() => {
+    if (!filters) return [];
+    const matching = pool.filter((p) => {
+      const st = states[p.uid];
+      // Once either side has declined, that profile stays out of each other's results.
+      if (st && ((st.state === 'sent' && st.status === 'declined') || st.state === 'declined-by-me')) return false;
+      if (!matchesFilters(p, filters)) return false;
+      if (filters.mutualOnly) {
+        // Profiles with nothing to compare yet (no score) stay visible, same as blank fields elsewhere.
+        const score = mutualCompatibility(profile, p).score;
+        if (score !== null && score < MUTUAL_MATCH_MIN) return false;
+      }
+      return true;
+    });
+    const ranked = filters.sortBy === 'compatibility' ? rankByCompatibility(matching, profile) : rankProfiles(matching);
+    return ranked.sort((a, b) => Number(spotlights.has(b.uid)) - Number(spotlights.has(a.uid)));
+  }, [pool, filters, states, profile, spotlights]);
+
+  if (!user || !profile || !filters) return null;
+
+  const filterCount = activeFilterCount(filters, base);
+  const shown = results.slice(0, visible);
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <Toast message={actions.toast} />
+
+      <header className="flex items-center justify-between px-4 pb-2 pt-3">
+        <h1 className="text-[22px] font-black tracking-tight text-[var(--text)]">{APP_NAME}</h1>
+        <button
+          onClick={() => router.push('/notifications')}
+          aria-label="Notifications"
+          className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)]"
+        >
+          <Bell size={18} color="var(--text)" />
+          {hasUnread && <span className="absolute right-[7px] top-[6px] h-2 w-2 rounded-full border border-white bg-[var(--primary)]" />}
+        </button>
+      </header>
+
+      <div className="flex items-center gap-2 px-4 pb-2">
+        <label className="flex h-11 flex-1 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3">
+          <Search size={16} color="var(--muted)" />
+          <input
+            value={filters.keyword}
+            onChange={(e) => setFilters({ ...filters, keyword: e.target.value })}
+            placeholder="Search by name, city or profession"
+            aria-label="Search profiles"
+            className="min-w-0 flex-1 bg-transparent text-[14px] text-[var(--text)] outline-none placeholder:text-[var(--muted2)]"
+          />
+          {filters.keyword && (
+            <button onClick={() => setFilters({ ...filters, keyword: '' })} aria-label="Clear search">
+              <X size={15} color="var(--muted)" />
+            </button>
+          )}
+        </label>
+        <button
+          onClick={() => profile?.premium ? setShowFilters(true) : router.push('/advanced-filters')}
+          aria-label="Open filters"
+          className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card)]"
+        >
+          <SlidersHorizontal size={18} color="var(--text)" />
+          {filterCount > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[var(--primary)] px-1 text-[10px] font-extrabold text-white">
+              {filterCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between px-4 pb-2 text-[12px]">
+        <span className="font-bold text-[var(--muted)]">
+          {loading ? 'Searching…' : `${results.length} ${results.length === 1 ? 'profile' : 'profiles'} · ages ${filters.ageMin}–${filters.ageMax}`}
+        </span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setFilters({ ...filters, sortBy: filters.sortBy === 'compatibility' ? 'recommended' : 'compatibility' })}
+            aria-label="Change sort order"
+            className="font-extrabold text-[var(--text)]"
+          >
+            {filters.sortBy === 'compatibility' ? 'Best match first' : 'Recommended'}
+          </button>
+          {filterCount > 0 && (
+            <button onClick={() => setFilters({ ...base, keyword: filters.keyword, sortBy: filters.sortBy })} className="font-extrabold text-[var(--primary)]">
+              Clear filters
+            </button>
+          )}
+        </div>
+      </div>
+
+      {(!profile.religion || !profile.heightCm) && (
+        <button
+          onClick={() => router.push('/settings/matrimony')}
+          className="mx-4 mb-2 rounded-xl border border-[var(--border)] bg-[var(--inputBg)] px-3.5 py-2.5 text-left"
+        >
+          <span className="block text-[13px] font-extrabold text-[var(--text)]">Complete your marriage profile</span>
+          <span className="block text-[12px] text-[var(--muted)]">Add height, religion and community so the right people can find you.</span>
+        </button>
+      )}
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+        {loading ? (
+          <p className="mt-16 text-center text-[var(--muted)]">Finding profiles for you…</p>
+        ) : loadError ? (
+          <div className="mt-16 text-center">
+            <p className="font-extrabold text-[var(--text)]">Couldn&apos;t load profiles</p>
+            <p className="mt-1 text-[var(--muted)]">Check your connection and reopen this tab.</p>
+          </div>
+        ) : results.length === 0 ? (
+          <div className="mt-16 text-center">
+            <p className="text-lg font-extrabold text-[var(--text)]">No profiles match these filters</p>
+            <p className="mt-1 text-[var(--muted)]">Widen the age range or remove a filter to see more.</p>
+            {filterCount > 0 && (
+              <button onClick={() => setFilters(base)} className="mt-4 rounded-full bg-[var(--text)] px-6 py-2.5 text-sm font-extrabold text-[var(--card)]">
+                Clear filters
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {shown.map((p) => (
+              <ProfileCard
+                key={p.uid}
+                profile={p}
+                viewer={profile}
+                state={states[p.uid] ?? NONE}
+                shortlisted={shortlist.has(p.uid)}
+                busy={actions.busyUid === p.uid}
+                handlers={{
+                  onOpen: () => router.push(`/user/${p.uid}`),
+                  onSend: () => actions.send(p),
+                  onAccept: () => actions.accept(p),
+                  onDecline: () => actions.decline(p),
+                  onWithdraw: () => actions.withdraw(p),
+                  onMessage: () => actions.openChat(p.uid),
+                  onToggleShortlist: () => actions.toggleShortlist(p, shortlist.has(p.uid)),
+                }}
+              />
+            ))}
+            {results.length > shown.length && (
+              <button
+                onClick={() => setVisible((v) => v + PAGE_SIZE)}
+                className="mx-auto mt-1 rounded-full border border-[var(--border)] bg-[var(--card)] px-6 py-2.5 text-sm font-extrabold text-[var(--text)]"
+              >
+                Show more ({results.length - shown.length} left)
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {showFilters && (
+        <FilterSheet
+          value={filters}
+          onChange={setFilters}
+          onClose={() => setShowFilters(false)}
+          onReset={() => setFilters({ ...base, keyword: filters.keyword, sortBy: filters.sortBy })}
+          resultCount={results.length}
+        />
+      )}
+    </div>
+  );
+}
