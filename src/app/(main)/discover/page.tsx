@@ -109,8 +109,6 @@ export default function SearchScreen() {
       // Once either side has declined, that profile stays out of each other's results.
       if (st && ((st.state === 'sent' && st.status === 'declined') || st.state === 'declined-by-me')) return false;
       if (dismissed.has(p.uid)) return false;
-      if (chip === 'male' && p.gender !== 'Male') return false;
-      if (chip === 'female' && p.gender !== 'Female') return false;
       if (chip === 'verified' && !p.verified) return false;
       if (chip === 'nearby' && !(profile?.state && p.state === profile.state)) return false;
       if (chip === 'horoscope') {

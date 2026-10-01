@@ -6,11 +6,11 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import {
   activateSpotlight, getApprovedPrivatePhotos, listenContactRequests, requestContact,
-  requestPrivatePhotos, sendPremiumMessage, type ContactRequestDoc,
+  requestPrivatePhotos, sendPremiumMessage,
 } from '@/lib/firestore';
 import { mutualCompatibility } from '@/lib/matrimony';
 import { authedFetch } from '@/lib/api-client';
-import type { Profile } from '@/lib/types';
+import type { ContactRequestDoc, Profile } from '@/lib/types';
 
 export default function Phase3Actions({ profile }: { profile: Profile }) {
   const router = useRouter();

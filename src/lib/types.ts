@@ -130,6 +130,8 @@ export type Profile = {
 
   // Verification
   verificationStatus?: VerificationStatus;
+  // Epoch ms when the selfie check passed (written by /api/groq/face-verify).
+  verifiedAt?: number;
   verificationSelfieUrl?: string;
   // Set when verificationStatus === 'rejected', explaining why the automated
   // face-match check didn't pass (shown to the user so they know what to fix).
