@@ -4,6 +4,8 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ShieldCheck, Camera, CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { APP_NAME } from '@/lib/brand';
+import { VerifiedTick } from '@/components/VerifiedBadges';
 import { submitVerificationSelfie, verifyFaceSelfie, VerificationError } from '@/lib/firestore';
 
 export default function VerificationPage() {
@@ -13,6 +15,7 @@ export default function VerificationPage() {
   const [busyLabel, setBusyLabel] = useState('');
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [justVerified, setJustVerified] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const hasProfilePhoto = Boolean(profile?.images?.[0]);
@@ -33,7 +36,9 @@ export default function VerificationPage() {
       const idToken = await user.getIdToken();
       const result = await verifyFaceSelfie(idToken, selfieUrl);
       await refreshProfile();
-      if (!result.verified) {
+      if (result.verified) {
+        setJustVerified(true);
+      } else {
         setError(result.reason || 'That selfie didn\u2019t match your profile photo. Try again with better lighting and a clear, front-on view.');
       }
     } catch (err) {
@@ -66,7 +71,7 @@ export default function VerificationPage() {
           <p className="mt-1 text-sm leading-5 text-[var(--muted)]">
             {profile?.gender === 'Male'
               ? "You can keep swiping either way, but you'll need to verify before you can message a match. Take a quick selfie and we'll check it against your profile photo."
-              : "Verification isn't required to message on Flirty, but a blue check builds trust and helps matches feel more confident it's really you. Take a quick selfie and we'll check it against your profile photo."}
+              : "Verification isn't required to message on " + APP_NAME + ", but a blue check builds trust and helps matches feel more confident it's really you. Take a quick selfie and we'll check it against your profile photo."}
           </p>
         </div>
 
@@ -103,8 +108,22 @@ export default function VerificationPage() {
             </div>
 
             {status === 'verified' ? (
-              <div className="mt-4 flex items-center gap-1.5 rounded-full bg-emerald-50 px-3.5 py-1.5 text-emerald-700">
-                <CheckCircle2 size={16} /> <span className="text-sm font-extrabold">You&apos;re verified</span>
+              <div className={`mt-4 flex w-full flex-col items-center rounded-2xl bg-emerald-50 px-4 py-4 text-emerald-800 ${justVerified ? 'animate-pop-in' : ''}`}>
+                <div className="flex items-center gap-1.5">
+                  <VerifiedTick verified size={24} />
+                  <span className="text-base font-black">{justVerified ? 'You\u2019re verified!' : 'Selfie verified'}</span>
+                </div>
+                <p className="mt-1 text-center text-[13px] leading-5">
+                  {justVerified
+                    ? 'Your selfie matched your profile photo. The Verified badge now shows on your profile and cards.'
+                    : 'The Verified badge shows on your profile and cards.'}
+                  {profile?.verifiedAt ? ` Verified on ${new Date(profile.verifiedAt).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}.` : ''}
+                </p>
+                {justVerified && (
+                  <button onClick={() => router.push('/discover')} className="mt-3 rounded-full bg-emerald-600 px-5 py-2 text-sm font-extrabold text-white">
+                    Back to Discover
+                  </button>
+                )}
               </div>
             ) : (
               <>

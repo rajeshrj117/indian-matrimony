@@ -131,14 +131,7 @@ export default function Phase3Actions({ profile }: { profile: Profile }) {
         <button onClick={() => router.push(`/horoscope/${profile.uid}`)} className="mt-2 flex items-center gap-1.5 text-xs font-extrabold text-[var(--primary)]"><Sparkles size={13} /> View horoscope compatibility</button>
       </div>
 
-      <div className="mt-4 border-t border-[var(--border)] pt-4">
-        <p className="flex items-center gap-1.5 text-sm font-extrabold"><MessageCircle size={16} color="var(--primary)" /> Premium Messaging</p>
-        <div className="mt-2 flex gap-2">
-          <input value={premiumText} onChange={e => setPremiumText(e.target.value.slice(0, 500))} placeholder="Introduce yourself…" className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--inputBg)] px-3 py-2 text-xs outline-none" />
-          <button disabled={busy === 'message'} onClick={premiumMessage} className="rounded-xl bg-[var(--primary)] px-3 text-xs font-extrabold text-white disabled:opacity-50">Send</button>
-        </div>
-        {!premium && <p className="mt-1 flex items-center gap-1 text-[10px] text-[var(--muted)]"><Lock size={10} /> Premium members can send an intro before a match.</p>}
-      </div>
+
     </section>
   );
 }

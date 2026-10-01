@@ -7,6 +7,7 @@ import { auth, db } from '@/lib/firebase';
 import { getProfile, migrateLegacyProfile } from '@/lib/firestore';
 import { mergeProfile } from '@/lib/profile-fields';
 import type { Profile } from '@/lib/types';
+import { ALL_FEATURES_FREE } from '@/lib/features';
 
 type AuthState = {
   user: User | null;
@@ -116,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, refreshProfile, logout }}>
+    <AuthContext.Provider value={{ user, profile: ALL_FEATURES_FREE && profile ? { ...profile, premium: true } : profile, loading, refreshProfile, logout }}>
       {children}
     </AuthContext.Provider>
   );

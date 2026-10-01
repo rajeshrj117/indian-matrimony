@@ -84,5 +84,5 @@ export function useInterestActions() {
     router.push(`/chat/${matchIdFor(user.uid, otherUid)}`);
   }, [router, user]);
 
-  return { busyUid, toast, send, accept, decline, withdraw, toggleShortlist, openChat };
+  return { busyUid, toast, flash, send, accept, decline, withdraw, toggleShortlist, openChat };
 }

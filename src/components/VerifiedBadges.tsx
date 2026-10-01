@@ -63,3 +63,38 @@ export function VerifiedTrustStrip() {
     </div>
   );
 }
+
+// ---- Selfie-verification badges (shown only once the server has marked the profile verified) ----
+
+// Green "✓ Verified" pill for the top-left of a card photo.
+export function VerifiedCardPill() {
+  return (
+    <span className="flex items-center gap-1 rounded-full bg-emerald-500 px-2.5 py-1 text-[12px] font-extrabold text-white shadow">
+      <ShieldCheck size={13} strokeWidth={2.5} /> Verified
+    </span>
+  );
+}
+
+// Blue tick next to a name. Renders nothing for unverified profiles, so it's safe to drop in anywhere.
+export function VerifiedTick({ verified, size = 18 }: { verified?: boolean; size?: number }) {
+  if (!verified) return null;
+  return <BadgeCheck size={size} color="#fff" fill="#2563EB" className="shrink-0" aria-label="Selfie verified" />;
+}
+
+// Small prompt for people who haven't verified yet.
+export function GetVerifiedPrompt({ onPress }: { onPress: () => void }) {
+  return (
+    <button
+      onClick={onPress}
+      className="mx-4 mb-3 flex items-center gap-3 rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF] px-3.5 py-3 text-left"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#2563EB]">
+        <ShieldCheck size={18} color="#fff" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] font-extrabold text-[#1E3A8A]">Get your Verified badge</span>
+        <span className="block text-[12px] text-[#3B5BA5]">Take a quick selfie so people know it&apos;s really you.</span>
+      </span>
+    </button>
+  );
+}

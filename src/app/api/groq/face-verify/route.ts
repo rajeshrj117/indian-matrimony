@@ -56,10 +56,10 @@ export async function POST(req: NextRequest) {
 
     const privRef = user.db.collection('userPrivate').doc(user.uid);
     if (passed) {
-      await userRef.update({ verified: true, verificationStatus: 'verified' });
+      await userRef.update({ verified: true, verificationStatus: 'verified', verifiedAt: Date.now() });
       await privRef.set({ verificationRejectionReason: FieldValue.delete() }, { merge: true });
     } else {
-      await userRef.update({ verified: false, verificationStatus: 'rejected' });
+      await userRef.update({ verified: false, verificationStatus: 'rejected', verifiedAt: FieldValue.delete() });
       await privRef.set({ verificationRejectionReason: reason }, { merge: true });
     }
     return NextResponse.json({ verified: passed, reason });

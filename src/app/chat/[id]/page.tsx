@@ -498,9 +498,17 @@ export default function ChatDetailScreen({ params }: { params: Promise<{ id: str
             </div>
           </div>
         </button>
-        <button onClick={toggleSound} title={soundOn ? 'Mute chat sounds' : 'Unmute chat sounds'} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--inputBg)] transition-transform active:scale-90">
-          {soundOn ? <Volume2 size={16} color="var(--text)" /> : <VolumeX size={16} color="var(--muted)" />}
-        </button>
+        <div className="flex shrink-0 flex-col items-center gap-1">
+      
+          <button
+            onClick={() => { if (!busy && window.confirm(`Block ${other.name}? They won't be able to see you.`)) void doBlock(); }}
+            disabled={busy}
+            aria-label={`Block ${other.name}`}
+            className="flex items-center gap-0.5 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-extrabold text-red-500 transition-transform active:scale-90 disabled:opacity-60"
+          >
+            <Ban size={10} /> Block
+          </button>
+        </div>
         <button onClick={() => setShowBlock(true)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--inputBg)] transition-transform active:scale-90"><MoreVertical size={16} color="var(--text)" /></button>
       </div>
 

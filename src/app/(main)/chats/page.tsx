@@ -1,5 +1,6 @@
 'use client';
 
+import { VerifiedTick } from '@/components/VerifiedBadges';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, MoreHorizontal, MessageCircle } from 'lucide-react';
@@ -143,7 +144,7 @@ export default function ChatsScreen() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex justify-between">
-                <span className="font-extrabold text-[var(--text)]">{other.name}</span>
+                <span className="flex items-center gap-1 font-extrabold text-[var(--text)]">{other.name}<VerifiedTick verified={other.verified} size={15} /></span>
                 <span className="text-xs font-semibold text-[var(--muted)]">{timeAgo(match.lastMessageAt)}</span>
               </div>
               <p className="mt-1 truncate text-[13px] text-[var(--muted)]">{match.lastMessage}</p>

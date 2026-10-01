@@ -12,6 +12,7 @@ export type PremiumPlan = 'monthly' | 'quarterly';
 
 export type ProfileCreatedBy = 'Self' | 'Parent' | 'Sibling' | 'Friend';
 
+export type PhotoPrivacy = 'public' | 'blur' | 'hidden';
 export type ManglikStatus = 'Yes' | 'No' | 'Partial (Anshik)' | "Don't know";
 
 export type RelocationPreference = 'Yes' | 'No' | 'Open to discuss';
@@ -141,6 +142,7 @@ export type Profile = {
   // see the live online dot while active). Mirrors the common reciprocal convention:
   // hiding your own last seen also hides everyone else's from you — enforced in the UI.
   hideLastSeen?: boolean;
+  photoPrivacy?: PhotoPrivacy; // who can see my photos: everyone / blurred / hidden until I show interest
   // If true, only face-verified accounts (see `verified`) can message this profile.
   onlyVerifiedCanMessage?: boolean;
   // Opt-in extra filtering for women: verified-only feed/messaging plus more aggressive

@@ -41,7 +41,7 @@ export async function geminiJson<T>(opts: {
 }): Promise<T | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
-  const model = opts.model || process.env.GEMINI_VISION_MODEL || 'gemini-2.0-flash';
+  const model = opts.model || process.env.GEMINI_VISION_MODEL || 'gemini-3.8-flash';
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },

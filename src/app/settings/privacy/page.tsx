@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, UserX, Download, Trash2, Flag, Loader2, EyeOff, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { ChevronLeft, UserX, Download, Trash2, Flag, Loader2, EyeOff, ShieldCheck, ShieldAlert, ImageOff } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { getBlockedProfiles, unblockUser, exportMyData, deleteMyProfileData, updateLastSeenVisibility, updateOnlyVerifiedCanMessage, updateWomenSafetyMode } from '@/lib/firestore';
-import type { Profile } from '@/lib/types';
+import { getBlockedProfiles, unblockUser, exportMyData, deleteMyProfileData, updateLastSeenVisibility, updatePhotoPrivacy, updateOnlyVerifiedCanMessage, updateWomenSafetyMode } from '@/lib/firestore';
+import type { PhotoPrivacy, Profile } from '@/lib/types';
 
 export default function PrivacyPage() {
   const router = useRouter();
@@ -19,8 +19,31 @@ export default function PrivacyPage() {
   const [savingLastSeen, setSavingLastSeen] = useState(false);
   const [onlyVerifiedCanMessage, setOnlyVerifiedCanMessage] = useState(Boolean(profile?.onlyVerifiedCanMessage));
   const [savingOnlyVerified, setSavingOnlyVerified] = useState(false);
+  const [photoPrivacy, setPhotoPrivacy] = useState<PhotoPrivacy>(profile?.photoPrivacy ?? 'public');
+  const [savingPhotoPrivacy, setSavingPhotoPrivacy] = useState(false);
   const [womenSafetyMode, setWomenSafetyMode] = useState(Boolean(profile?.womenSafetyMode));
   const [savingWomenSafety, setSavingWomenSafety] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs local choice once the profile doc loads
+    setPhotoPrivacy(profile?.photoPrivacy ?? 'public');
+  }, [profile?.photoPrivacy]);
+
+  const choosePhotoPrivacy = async (next: PhotoPrivacy) => {
+    if (!user || next === photoPrivacy) return;
+    const prev = photoPrivacy;
+    setPhotoPrivacy(next);
+    setSavingPhotoPrivacy(true);
+    try {
+      await updatePhotoPrivacy(user.uid, next);
+      await refreshProfile();
+    } catch (err) {
+      console.error(err);
+      setPhotoPrivacy(prev);
+    } finally {
+      setSavingPhotoPrivacy(false);
+    }
+  };
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs local toggle once the profile doc loads
@@ -183,6 +206,36 @@ export default function PrivacyPage() {
               style={{ transform: hideLastSeen ? 'translateX(20px)' : 'translateX(0)' }}
             />
           </button>
+        </div>
+
+        <p className="mb-2 mt-5 px-1 font-extrabold text-[var(--text)]">Photo privacy</p>
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3.5">
+          <div className="mb-2.5 flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--inputBg)]"><ImageOff size={16} color="var(--text)" /></span>
+            <p className="flex-1 text-xs text-[var(--muted)]">Choose who can see your photos. Photos unlock for a member once you send them interest or accept theirs.</p>
+          </div>
+          {([
+            ['public', 'Show to everyone', 'Anyone can see my photos'],
+            ['blur', 'Blur until I like', 'Photos look blurred until I show interest'],
+            ['hidden', 'Hide until I like', 'No photo is shown until I show interest'],
+          ] as const).map(([value, title, sub]) => (
+            <button
+              key={value}
+              onClick={() => choosePhotoPrivacy(value)}
+              disabled={savingPhotoPrivacy}
+              aria-pressed={photoPrivacy === value}
+              className="mt-1.5 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left disabled:opacity-60"
+              style={{ borderColor: photoPrivacy === value ? 'var(--primary)' : 'var(--border)', background: photoPrivacy === value ? 'var(--inputBg)' : 'transparent' }}
+            >
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2" style={{ borderColor: photoPrivacy === value ? 'var(--primary)' : 'var(--border)' }}>
+                {photoPrivacy === value && <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--primary)' }} />}
+              </span>
+              <span>
+                <p className="text-sm font-bold text-[var(--text)]">{title}</p>
+                <p className="text-xs text-[var(--muted)]">{sub}</p>
+              </span>
+            </button>
+          ))}
         </div>
 
         <p className="mb-2 mt-5 px-1 font-extrabold text-[var(--text)]">Safety</p>

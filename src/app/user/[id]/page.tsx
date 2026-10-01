@@ -1,8 +1,9 @@
 'use client';
 
+import { photoLock } from '@/lib/photoPrivacy';
 import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Share2, Flag, MapPin, Briefcase, GraduationCap, Heart, Bookmark, MessageCircle, ShieldCheck, Ban, Check, Loader2, Expand } from 'lucide-react';
+import { ArrowLeft, Share2, Flag, MapPin, Briefcase, GraduationCap, Heart, Bookmark, MessageCircle, ShieldCheck, Ban, Check, Loader2, Expand, Lock } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import {
   getProfile, blockUser, reportUser, isBlockedEitherWay,
@@ -168,6 +169,7 @@ export default function UserDetailScreen({ params }: { params: Promise<{ id: str
     ? profile.images
     : ['https://images.unsplash.com/vector-1742875355318-00d715aec3e8?q=80&w=400'];
   const photo = photos[Math.min(photoIndex, photos.length - 1)];
+  const lock = photoLock(profile, user?.uid, interest);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -178,8 +180,24 @@ export default function UserDetailScreen({ params }: { params: Promise<{ id: str
       )}
       <Toast message={actions.toast} />
       <div className="flex-1 min-h-0 overflow-y-auto pb-24">
-        <div className="relative h-[58vh] min-h-[340px]">
-          <img src={photo} className="h-full w-full object-cover" alt="" onClick={() => setShowLightbox(true)} />
+        <div className="relative h-[58vh] min-h-[340px] overflow-hidden bg-black">
+          {lock === 'hidden' ? (
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #3b2a6b, #7a2a5a)' }} />
+          ) : (
+            <>
+              {/* Blurred copy fills the sides so the full photo can be shown uncropped on top */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={photo} className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl" alt="" aria-hidden="true" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={photo} className={`relative h-full w-full object-contain ${lock === 'blur' ? 'scale-110 blur-2xl' : ''}`} alt="" onClick={() => { if (!lock) setShowLightbox(true); }} />
+            </>
+          )}
+          {lock && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-8 text-center text-white">
+              <Lock size={30} />
+              <p className="text-sm font-extrabold drop-shadow">Photos unlock when {profile.name} shows interest in you</p>
+            </div>
+          )}
           <div className="absolute inset-x-0 bottom-0 h-[200px]" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)' }} />
 
           {photos.length > 1 && (
@@ -442,7 +460,7 @@ export default function UserDetailScreen({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {showLightbox && (
+      {showLightbox && !lock && (
         <PhotoLightbox images={photos} startIndex={photoIndex} onClose={() => setShowLightbox(false)} />
       )}
     </div>

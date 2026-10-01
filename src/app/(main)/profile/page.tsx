@@ -1,9 +1,10 @@
 'use client';
+import { ALL_FEATURES_FREE } from '@/lib/features';
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  LogOut, CheckCircle2, Edit3, Eye, Moon, ShieldCheck, Lock, Bell, Globe, HelpCircle, ChevronRight, HeartHandshake, Camera, AlertCircle, Settings, Sparkles, Plus, Trash2, Loader2, UserPen,
+  LogOut, Edit3, Eye, Moon, ShieldCheck, Lock, Bell, Globe, HelpCircle, ChevronRight, HeartHandshake, Camera, AlertCircle, Settings, Sparkles, Plus, Trash2, Loader2, UserPen,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme';
@@ -12,6 +13,7 @@ import { saveProfile, uploadProfilePhoto, PhotoPolicyError, ContentPolicyError }
 import { authedFetch } from '@/lib/api-client';
 import { profileCompleteness } from '@/lib/matrimony';
 import PhotoLightbox from '@/components/PhotoLightbox';
+import { VerifiedTick, VerifiedCardPill } from '@/components/VerifiedBadges';
 import ProfileDetails from '@/components/ProfileDetails';
 
 const MAX_PHOTOS = 6;
@@ -195,16 +197,23 @@ export default function ProfileScreen() {
             </button>
           </div>
           <p className="mt-3 flex items-center gap-1.5 text-[22px] font-black text-[var(--text)]">
-            {profile.name} • {profile.age} {profile.verified && <CheckCircle2 size={18} color="#3B82F6" />}
+            {profile.name} • {profile.age} <VerifiedTick verified={profile.verified} size={22} />
           </p>
           <p className="text-[13px] text-[var(--muted)]">
-            {[profile.location, profile.occupation || profile.job].filter(Boolean).join(' • ') || 'Add your details'} • {profile.verified ? 'Verified' : 'Not verified'}
+            {[profile.location, profile.occupation || profile.job].filter(Boolean).join(' • ') || 'Add your details'} 
           </p>
+          {profile.verified ? (
+            <div className="mt-2"><VerifiedCardPill /></div>
+          ) : (
+            <button onClick={() => router.push('/settings/verification')} className="mt-2 rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-1 text-[12px] font-extrabold text-[#1D4ED8]">
+              Get verified
+            </button>
+          )}
           <div className="mt-3 flex gap-2">
             <button onClick={() => router.push('/settings/matrimony')} className="grad-primary flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-extrabold text-white">
               <UserPen size={14} /> Edit profile
             </button>
-            <button onClick={() => router.push('/matrimony-tools')} className="flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-[13px] font-extrabold text-[var(--text)]"><Sparkles size={14} /> Matrimony tools</button>
+           
             <button onClick={() => router.push(`/user/${profile.uid}`)} className="flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-[13px] font-extrabold text-[var(--text)]">
               <Eye size={14} /> {t('preview')}
             </button>
@@ -362,7 +371,7 @@ export default function ProfileScreen() {
                   <div className="flex items-center gap-1.5">
                     <p className="font-bold text-[var(--text)]">{item.label}</p>
                     {item.key === 'verification' && (profile.verificationStatus === 'verified' || profile.verified) && (
-                      <CheckCircle2 size={14} color="#3B82F6" />
+                      <VerifiedTick verified size={16} />
                     )}
                   </div>
                   {'sub' in item && item.sub && <p className="text-xs text-[var(--muted)]">{item.sub}</p>}
@@ -382,7 +391,7 @@ export default function ProfileScreen() {
             ))}
           </div>
 
-          <button
+          {!ALL_FEATURES_FREE && <button
             onClick={() => router.push('/premium')}
             className="flex gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-left"
           >
@@ -400,7 +409,7 @@ export default function ProfileScreen() {
                 </>
               )}
             </div>
-          </button>
+          </button>}
 
           <button
             onClick={doLogout}

@@ -8,7 +8,7 @@ export const PUBLIC_PROFILE_FIELDS = [
   'uid', 'name', 'age', 'gender', 'interestedIn', 'relationship', 'bio', 'expectations',
   'work', 'drinking', 'smoking', 'location', 'approxLatitude', 'approxLongitude', 'job',
   'interests', 'images', 'verified', 'verificationStatus', 'online', 'lastSeenAt',
-  'hideLastSeen', 'onlyVerifiedCanMessage', 'profileComplete', 'createdAt', 'updatedAt',
+  'hideLastSeen', 'photoPrivacy', 'onlyVerifiedCanMessage', 'profileComplete', 'createdAt', 'updatedAt',
   // Matrimony details
   'profileFor', 'maritalStatus', 'heightCm', 'religion', 'community', 'motherTongue',
   'education', 'annualIncome', 'diet', 'state', 'createdBy', 'occupation', 'nativePlace',

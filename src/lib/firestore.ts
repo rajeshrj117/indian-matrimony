@@ -1,3 +1,4 @@
+import { ALL_FEATURES_FREE } from '@/lib/features';
 import {
   collection, collectionGroup, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where,
   onSnapshot, orderBy, addDoc, serverTimestamp, arrayUnion, arrayRemove, deleteField, limit as fsLimit, Unsubscribe,
@@ -356,7 +357,7 @@ export const PREMIUM_INTERESTS_PER_DAY = 40;
 // (legacy field names). It deters spam and mass-messaging; it is a client-side guard, not a
 // server-enforced limit.
 async function consumeDailyInterestQuota(uid: string, isPremium: boolean): Promise<void> {
-  const limit = isPremium ? PREMIUM_INTERESTS_PER_DAY : FREE_INTERESTS_PER_DAY;
+  const limit = (isPremium || ALL_FEATURES_FREE) ? PREMIUM_INTERESTS_PER_DAY : FREE_INTERESTS_PER_DAY;
   const ref2 = doc(db, 'userPrivate', uid);
   const snap = await getDoc(ref2);
   const data = snap.data() as Profile | undefined;
@@ -585,6 +586,32 @@ export async function getRatingSummary(uid: string): Promise<RatingSummary> {
     avgStars: starsCount > 0 ? starsTotal / starsCount : 0,
     starsCount,
     totalLikes,
+  };
+}
+
+// One query gives both the profile's summary and the viewer's own rating of it, so a list of
+// cards costs one read-query per card instead of two.
+export async function getRatingBundle(
+  uid: string,
+  myUid: string
+): Promise<{ summary: RatingSummary; mine: RatingDoc | null }> {
+  const snap = await getDocs(query(collection(db, 'ratings'), where('to', '==', uid)));
+  let starsTotal = 0;
+  let starsCount = 0;
+  let totalLikes = 0;
+  let mine: RatingDoc | null = null;
+  snap.docs.forEach((d) => {
+    const r = d.data() as RatingDoc;
+    totalLikes += r.likes ?? 0;
+    if (typeof r.stars === 'number') {
+      starsTotal += r.stars;
+      starsCount += 1;
+    }
+    if (r.from === myUid) mine = r;
+  });
+  return {
+    summary: { avgStars: starsCount > 0 ? starsTotal / starsCount : 0, starsCount, totalLikes },
+    mine,
   };
 }
 
@@ -990,6 +1017,11 @@ export async function updateLastSeenVisibility(uid: string, hideLastSeen: boolea
   await updateDoc(doc(db, 'users', uid), { hideLastSeen });
 }
 
+// Controls who sees my photos: everyone, blurred, or hidden until I show interest in the viewer.
+export async function updatePhotoPrivacy(uid: string, photoPrivacy: 'public' | 'blur' | 'hidden') {
+  await updateDoc(doc(db, 'users', uid), { photoPrivacy });
+}
+
 // Lets a user require that only face-verified accounts can message them. Reconstructed
 // to match the existing hideLastSeen toggle's shape/pattern.
 export async function updateOnlyVerifiedCanMessage(uid: string, onlyVerifiedCanMessage: boolean) {
@@ -1067,7 +1099,7 @@ export async function requestContact(
 ) {
   if (requester === target) throw new Error('You cannot request your own contact details.');
   const me = await getProfile(requester);
-  if (!me?.premium) throw new Error('Contact requests are a Premium feature.');
+  if (!ALL_FEATURES_FREE && !me?.premium) throw new Error('Contact requests are a Premium feature.');
   const id = contactRequestIdFor(requester, target, type);
   const existing = await getDoc(doc(db, 'contactRequests', id));
   const now = Date.now();
@@ -1150,7 +1182,7 @@ export async function getApprovedPrivatePhotos(requester: string, owner: string)
 
 export async function activateSpotlight(uid: string) {
   const p = await getProfile(uid);
-  if (!p?.premium) throw new Error('Spotlight is a Premium feature.');
+  if (!ALL_FEATURES_FREE && !p?.premium) throw new Error('Spotlight is a Premium feature.');
   const now = Date.now();
   const expiresAt = now + 60 * 60 * 1000;
   await setDoc(doc(db, 'spotlights', uid), { uid, startedAt: now, expiresAt });
@@ -1166,7 +1198,7 @@ export async function getActiveSpotlights(): Promise<SpotlightDoc[]> {
 // the app can continue the conversation through the existing matched-chat system.
 export async function sendPremiumMessage(from: string, to: string, text: string) {
   const p = await getProfile(from);
-  if (!p?.premium) throw new Error('Premium Messaging requires Premium.');
+  if (!ALL_FEATURES_FREE && !p?.premium) throw new Error('Premium Messaging requires Premium.');
   const clean = text.trim().slice(0, 500);
   if (!clean) throw new Error('Write a short introduction first.');
   const id = `${from}_${to}`;
