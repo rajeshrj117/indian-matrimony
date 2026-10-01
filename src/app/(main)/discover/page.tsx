@@ -168,16 +168,7 @@ export default function SearchScreen() {
         </div>
       </header>
 
-      <div
-        className="mx-4 mb-3 flex items-center justify-between rounded-3xl px-5 py-4 text-white shadow-md"
-        style={{ background: 'linear-gradient(100deg, #F0508C 0%, #B565D6 55%, #8A7CF5 100%)' }}
-      >
-        <div>
-          <p className="flex items-center gap-2 text-[22px] font-black"><Sparkles size={22} fill="#fff" /> Find Your Spark</p>
-          <p className="mt-0.5 text-[14px] font-medium text-white/90">Meet amazing people, one swipe at a time.</p>
-        </div>
-        <Heart size={44} color="#fff" className="shrink-0 opacity-30" />
-      </div>
+     
 
       <div className="flex items-center gap-2 px-4 pb-2">
         <label className="flex h-12 flex-1 items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-3.5 shadow-sm">
