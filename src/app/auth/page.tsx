@@ -166,7 +166,7 @@ export default function AuthScreen() {
             <button
               onClick={handleSendOtp}
               disabled={sending}
-              className="grad-primary mt-3.5 flex h-[52px] w-full items-center justify-center rounded-2xl text-base font-extrabold text-white active:scale-[0.98] disabled:opacity-60"
+              className="bg-[var(--primary)] mt-3.5 flex h-[52px] w-full items-center justify-center rounded-2xl text-base font-extrabold text-white active:scale-[0.98] disabled:opacity-60"
             >
               {sending ? 'Sending…' : 'Send OTP'}
             </button>
