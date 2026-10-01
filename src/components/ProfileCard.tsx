@@ -138,12 +138,17 @@ export default function ProfileCard({
     <article className="overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--card)] p-3.5 shadow-[0_8px_30px_rgba(120,60,200,0.08)]">
       {/* Photo */}
       <div className="relative">
-        <button onClick={handlers.onOpen} className="block h-[210px] w-full overflow-hidden rounded-2xl bg-[var(--inputBg)]" aria-label={`Open ${profile.name}'s profile`}>
+        <button onClick={handlers.onOpen} className="relative block w-full overflow-hidden rounded-2xl bg-[var(--inputBg)]" aria-label={`Open ${profile.name}'s profile`}>
           {lock === 'hidden' ? (
-            <span className="flex h-full w-full items-center justify-center" style={{ background: 'linear-gradient(135deg, #F1ECFF, #FFE4F1)' }} />
+            <span className="block h-[260px] w-full" style={{ background: 'linear-gradient(135deg, #F1ECFF, #FFE4F1)' }} />
           ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo} alt="" className={`h-full w-full object-cover object-top ${lock === 'blur' ? 'scale-110 blur-2xl' : ''}`} />
+            <>
+              {/* blurred backdrop fills the empty sides so the full photo can show uncropped */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={photo} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={photo} alt="" className={`relative mx-auto block max-h-[460px] min-h-[200px] w-full object-contain ${lock === 'blur' ? 'scale-110 blur-2xl' : ''}`} />
+            </>
           )}
           {lock && (
             <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/20 px-6 text-center text-white">
@@ -213,18 +218,20 @@ export default function ProfileCard({
         </div>
       )}
 
-      {/* Quote / status */}
-      {quote && (
-        <p className="mx-1 mt-3 flex items-center gap-2 rounded-xl bg-[var(--inputBg)] px-3 py-2.5 text-[14px] text-[var(--text)]">
-          <Quote size={14} color="var(--muted)" fill="var(--muted)" className="shrink-0" />
-          <span className="min-w-0 truncate">&ldquo;{quote}&rdquo;</span>
-        </p>
-      )}
-
-      {/* Mutual match */}
-      {compat && compat.score !== null && (
-        <div className="mx-1 mt-2.5 flex items-center gap-2 rounded-xl bg-[#E8FAF0] px-3 py-2.5 text-[14px] font-extrabold text-[#166534]">
-          <Sparkles size={16} /> {compat.score}% {compat.twoWay ? 'mutual match' : 'match'}
+      {/* Quote / status + Mutual match (single row) */}
+      {(quote || (compat && compat.score !== null)) && (
+        <div className="mx-1 mt-3 flex items-stretch gap-2">
+          {quote && (
+            <p className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-[var(--inputBg)] px-3 py-2.5 text-[14px] text-[var(--text)]">
+              <Quote size={14} color="var(--muted)" fill="var(--muted)" className="shrink-0" />
+              <span className="min-w-0 truncate">&ldquo;{quote}&rdquo;</span>
+            </p>
+          )}
+          {compat && compat.score !== null && (
+            <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-[#E8FAF0] px-3 py-2.5 text-[14px] font-extrabold text-[#166534]">
+              <Sparkles size={16} className="shrink-0" /> {compat.score}% {compat.twoWay ? 'mutual match' : 'match'}
+            </div>
+          )}
         </div>
       )}
 
