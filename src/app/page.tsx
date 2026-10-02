@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Heart, ArrowRight, Lock, BadgeCheck, Sparkles, Languages, MapPin, Users } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import AppLoader from '@/components/AppLoader';
 
 const IMG_WOMAN = '/onboarding/image-3.jpg';
 const IMG_MAN = '/onboarding/image-1.jpg';
@@ -50,7 +51,6 @@ function WelcomeScreen() {
         <h1 className="text-[25px] font-extrabold leading-[36px] text-[var(--text)]">
           Your <span className="text-[var(--primary)]">perfect match</span> is just a step away!
         </h1>
-    
       </div>
     </>
   );
@@ -97,8 +97,6 @@ function MeaningfulScreen() {
           ))}
         </div>
       </div>
-
-
     </>
   );
 }
@@ -117,7 +115,8 @@ export default function OnboardingScreen() {
     return () => clearTimeout(t);
   }, [loading, user, profile, router]);
 
-  if (!ready) return null;
+  // Branded loader while auth is resolving or a redirect is in progress
+  if (!ready) return <AppLoader />;
 
   const isLast = page === 1;
 
@@ -125,15 +124,12 @@ export default function OnboardingScreen() {
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pb-6 pt-6">
       {/* brand header */}
       <div className="flex items-center justify-center gap-2">
-      <img src="/logo.png" alt="Indian Shaadi Matrimony" width="260" />
+        <img src="/logo.png" alt="Indian Shaadi Matrimony" width="260" />
       </div>
 
       <div key={page} className="animate-fade-in flex min-h-0 flex-1 flex-col ">
         {page === 0 ? <WelcomeScreen /> : <MeaningfulScreen />}
       </div>
-
-      {/* dots */}
- 
 
       <button
         onClick={() => (isLast ? router.push('/auth') : setPage(1))}
