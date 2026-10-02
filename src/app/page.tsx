@@ -47,12 +47,10 @@ function WelcomeScreen() {
       </div>
 
       <div className="mt-6 text-center">
-        <h1 className="text-[30px] font-extrabold leading-[36px] text-[var(--text)]">
+        <h1 className="text-[25px] font-extrabold leading-[36px] text-[var(--text)]">
           Your <span className="text-[var(--primary)]">perfect match</span> is just a step away!
         </h1>
-        <p className="mt-3 text-base leading-6 text-[var(--muted)]">
-          Create your profile and let us bring you closer to your life partner.
-        </p>
+    
       </div>
     </>
   );
@@ -127,26 +125,15 @@ export default function OnboardingScreen() {
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pb-6 pt-6">
       {/* brand header */}
       <div className="flex items-center justify-center gap-2">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--primary)]">
-          <Heart size={16} color="#fff" fill="#fff" />
-        </span>
-        <span className="text-[22px] font-black text-[var(--text)]">Flirty</span>
+      <img src="/logo.png" alt="Indian Shaadi Matrimony" width="260" />
       </div>
 
-      <div key={page} className="animate-fade-in flex min-h-0 flex-1 flex-col pt-4">
+      <div key={page} className="animate-fade-in flex min-h-0 flex-1 flex-col ">
         {page === 0 ? <WelcomeScreen /> : <MeaningfulScreen />}
       </div>
 
       {/* dots */}
-      <div className="mt-5 flex justify-center gap-2">
-        {[0, 1].map((i) => (
-          <span
-            key={i}
-            className="h-1.5 rounded-full transition-all"
-            style={{ width: i === page ? 28 : 8, background: i === page ? 'var(--primary)' : 'var(--border)' }}
-          />
-        ))}
-      </div>
+ 
 
       <button
         onClick={() => (isLast ? router.push('/auth') : setPage(1))}

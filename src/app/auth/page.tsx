@@ -136,15 +136,11 @@ export default function AuthScreen() {
           <ArrowLeft size={20} color="var(--text)" />
         </button>
 
-        <div className="mt-4 flex flex-col items-center">
-          <div className="grad-primary flex h-16 w-16 items-center justify-center rounded-[20px]">
-            <Heart size={32} color="#fff" fill="#fff" />
-          </div>
-          <h1 className="mt-3 text-[28px] font-black tracking-tight text-[var(--text)]">flirty</h1>
-          <p className="mt-0.5 text-[13px] font-semibold tracking-[2px] text-[var(--muted)]">FIND YOUR SPARK</p>
+        <div className=" flex flex-col items-center -mt-[50px]">
+        <img src="/logo.png" alt="Indian Shaadi Matrimony" width="260" />
         </div>
 
-        <div className="mt-8">
+        <div className="mt-">
           <h2 className="text-2xl font-extrabold text-[var(--text)]">Welcome back</h2>
           <p className="mt-1.5 text-[15px] text-[var(--muted)]">Sign in to continue finding real connections</p>
 

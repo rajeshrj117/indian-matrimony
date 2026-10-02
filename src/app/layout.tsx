@@ -7,13 +7,13 @@ import AppRealtime from "@/components/AppRealtime";
 import PwaRegister from "@/components/PwaRegister";
 
 export const metadata: Metadata = {
-  title: "flirty — find your spark",
-  description: "Real connections, not just swipes.",
+  title: "Indian Shaadi Matrimony — Better Matches, Brighter Futures",
+  description: "Real people, real connections. Find your life partner.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "flirty",
+    title: "Indian Shaadi Matrimony",
   },
   icons: {
     icon: "/icons/icon-192.png",
