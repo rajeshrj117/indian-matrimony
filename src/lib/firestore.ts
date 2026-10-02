@@ -1103,14 +1103,10 @@ export async function requestContact(
   if (!ALL_FEATURES_FREE && !me?.premium) throw new Error('Contact requests are a Premium feature.');
   const id = contactRequestIdFor(requester, target, type);
   const existing = await getDoc(doc(db, 'contactRequests', id));
+  if (existing.exists()) return; // already requested; only the target can change it (firestore.rules)
   const now = Date.now();
-  const data: ContactRequestDoc = {
-    id, requester, target, type,
-    status: existing.exists() ? (existing.data() as ContactRequestDoc).status : 'pending',
-    createdAt: existing.exists() ? (existing.data() as ContactRequestDoc).createdAt : now,
-    updatedAt: now,
-  };
-  await setDoc(doc(db, 'contactRequests', id), data);
+  // No `id` field: firestore.rules only allow requester/target/type/status/createdAt/updatedAt.
+  await setDoc(doc(db, 'contactRequests', id), { requester, target, type, status: 'pending', createdAt: now, updatedAt: now });
 }
 
 export function listenContactRequests(uid: string, cb: (items: ContactRequestDoc[]) => void) {
@@ -1148,11 +1144,9 @@ export async function requestPrivatePhotos(requester: string, owner: string) {
   if (requester === owner) return;
   const id = photoAccessIdFor(requester, owner);
   const existing = await getDoc(doc(db, 'photoAccessRequests', id));
-  if (existing.exists() && (existing.data() as PhotoAccessRequestDoc).status === 'approved') return;
+  if (existing.exists()) return; // already requested; only the owner can change it (firestore.rules)
   const now = Date.now();
-  await setDoc(doc(db, 'photoAccessRequests', id), {
-    requester, owner, status: 'pending', createdAt: existing.exists() ? (existing.data() as PhotoAccessRequestDoc).createdAt : now, updatedAt: now,
-  });
+  await setDoc(doc(db, 'photoAccessRequests', id), { requester, owner, status: 'pending', createdAt: now, updatedAt: now });
 }
 
 export function listenPhotoAccessRequests(uid: string, cb: (items: PhotoAccessRequestDoc[]) => void) {

@@ -307,7 +307,7 @@ service cloud.firestore {
     // One doc per viewer/target pair. The viewer writes it; both sides can read it.
     match /profileViews/{viewId} {
       allow read: if signedIn()
-        && (resource.data.viewer == request.auth.uid || resource.data.target == request.auth.uid)
+        && (resource == null || resource.data.viewer == request.auth.uid || resource.data.target == request.auth.uid)
         && isPremium(request.auth.uid);
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly(['viewer', 'target', 'viewedAt', 'count'])
@@ -399,8 +399,10 @@ service cloud.firestore {
         allow update: if signedIn()
           && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users
           && (
-            request.resource.data.read == true
-            || request.resource.data.delivered == true
+            (
+              (request.resource.data.read == true || request.resource.data.delivered == true)
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt', 'delivered', 'deliveredAt'])
+            )
             || (
               request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
               && request.resource.data.reactions.diff(resource.data.get('reactions', {})).affectedKeys().hasOnly([request.auth.uid])
@@ -491,7 +493,7 @@ service cloud.firestore {
         && request.resource.data.uid == uid
         && isPremium(uid)
         && request.resource.data.expiresAt > request.time.toMillis()
-        && request.resource.data.expiresAt <= request.time.toMillis() + 3600000;
+        && request.resource.data.expiresAt <= request.time.toMillis() + 3900000;
       allow delete: if signedIn() && request.auth.uid == uid;
     }
 

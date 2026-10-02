@@ -140,7 +140,7 @@ export default function AuthScreen() {
         <img src="/logo.png" alt="Indian Shaadi Matrimony" width="260" />
         </div>
 
-        <div className="mt-">
+        <div className="mt-4">
           <h2 className="text-2xl font-extrabold text-[var(--text)]">Welcome back</h2>
           <p className="mt-1.5 text-[15px] text-[var(--muted)]">Sign in to continue finding real connections</p>
 
