@@ -149,7 +149,7 @@ export default function SearchScreen() {
           <button
             onClick={() => router.push('/notifications')}
             aria-label="Notifications"
-            className="relative flex h-11 w-11 items-center justify-center rounded-full bg-[#fff1f3]"
+            className="relative flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)] flex h-11 w-11 items-center justify-center rounded-full bg-[#fff1f3]"
           >
             <Bell size={20}  />
             {hasUnread && <span className="absolute right-0 top-0 h-3 w-3 rounded-full border-2 border-white bg-[#F0148C]" />}

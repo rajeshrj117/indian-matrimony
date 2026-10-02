@@ -44,20 +44,21 @@ const SYSTEM =
   'You moderate one chat message on a matrimony app used by adults in India. The two people have accepted each ' +
   'other\u2019s interest and are getting to know each other with marriage in mind, so respectful, warm conversation ' +
   'about themselves, family, values, career, horoscope, religion, future plans, meeting families and marriage is ' +
-  'GOOD and must be allowed, as are polite compliments and affectionate but respectful words. Messages may be in ' +
+  'GOOD and must be allowed, as are polite, respectful compliments about character, values or family. Flirty, romantic or sexual talk is NOT allowed. Messages may be in ' +
   'any language, including Hindi/Tamil/Telugu etc. written in English letters (Hinglish/Tanglish) and slang or ' +
   'misspellings meant to dodge filters. Categories: ' +
   '"sexual" = sexual talk, innuendo or fantasies; pornography; asking for nude, intimate or private photos/videos; ' +
-  'obscene or sexual comments about someone\u2019s body. ' +
+  'obscene, sexual or flirty comments about someone\u2019s looks or body (e.g. "you look sexy", "so hot"). ' +
   '"casual" = proposing or asking about a casual relationship, hookup, friends-with-benefits, "timepass" or ' +
-  'dating without marriage intent. ' +
+  'dating without marriage intent; flirty or romantic talk such as "I love you", "I miss you", pet names (baby, ' +
+  'darling, jaanu), kisses/hugs, love declarations or asking for a girlfriend/boyfriend. ' +
   '"dowry" = demanding or hinting at dowry, cash, gold, property or gifts as a condition of marriage. ' +
   '"harassment" (insults, abuse, pressure after a refusal), "threat" (threats of violence), "hate" (hate speech/slurs, ' +
   'including caste or religious slurs), "scam" (asking for money, OTPs, gift cards, investment/crypto schemes, ' +
   'emergency-money stories), "self_harm" (sender describes harming themselves), "spam" (bulk/promotional ' +
   'junk), or "ok" = everything else: greetings, introductions, family and career questions, expectations about ' +
   'marriage, disagreement and blunt but polite opinions. ' +
-  'Flag "sexual" and "casual" whenever clearly present. For every other category be conservative: only flag real ' +
+  'Flag "sexual" and "casual" whenever present, even if mild or joking. For every other category be conservative: only flag real ' +
   'problems, not rude or awkward phrasing. ' +
   'Respond ONLY with JSON: {"allowed": boolean, "category": string, "reason": string (short, user-facing, ' +
   'under 15 words, only when allowed is false)}';
@@ -128,6 +129,8 @@ export async function POST(req: NextRequest) {
     let reason = '';
     if (regex.flags.includes('explicit')) {
       category = 'sexual';
+    } else if (regex.flags.includes('flirty')) {
+      category = 'casual'; // flirty / romantic talk counts as a strike too
     } else if (regex.level === 'block') {
       return NextResponse.json({ allowed: false, category: 'policy', reason: regex.message });
     }
@@ -186,7 +189,7 @@ export async function POST(req: NextRequest) {
       allowed: false, category, strike: true, strikes, maxStrikes: MAX_STRIKES,
       reason:
         `Warning ${strikes} of ${MAX_STRIKES}: ${APP_NAME} is for people looking for marriage. ` +
-        `Sexual or casual-relationship messages aren\u2019t allowed and weren\u2019t sent. ` +
+        `Flirty, romantic or sexual messages are against our texting rules and weren\u2019t sent. ` +
         `${left} more ${left === 1 ? 'warning' : 'warnings'} and chat will be locked for ${dayWord} days.`,
     });
   } catch (err) {

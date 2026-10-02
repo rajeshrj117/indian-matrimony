@@ -138,11 +138,14 @@ export async function claimIdentity(uid: string, phone: string | null, email: st
 export class ContentPolicyError extends Error {
   strikes?: number;
   maxStrikes?: number;
-  constructor(message: string, opts: { strikes?: number; maxStrikes?: number } = {}) {
+  /** true when the message broke the texting rules (flirty / romantic / sexual / abusive) */
+  rule: boolean;
+  constructor(message: string, opts: { strikes?: number; maxStrikes?: number; rule?: boolean } = {}) {
     super(message);
     this.name = 'ContentPolicyError';
     this.strikes = opts.strikes;
     this.maxStrikes = opts.maxStrikes;
+    this.rule = opts.rule ?? false;
   }
 }
 
@@ -210,10 +213,10 @@ async function assertMessageAllowed(uid: string, text: string) {
     if (mod.locked) throw new ChatLockedError(mod.lockedUntil ?? 0, mod.reason);
     throw new ContentPolicyError(
       mod.reason ?? 'This message goes against our Community Guidelines and wasn\u2019t sent.',
-      { strikes: mod.strikes, maxStrikes: mod.maxStrikes },
+      { strikes: mod.strikes, maxStrikes: mod.maxStrikes, rule: true },
     );
   }
-  if (verdict.level === 'block') throw new ContentPolicyError(verdict.message ?? 'This message goes against our Community Guidelines.');
+  if (verdict.level === 'block') throw new ContentPolicyError(verdict.message ?? 'This message goes against our Community Guidelines.', { rule: true });
 }
 
 export async function saveProfile(uid: string, data: Partial<Profile>) {

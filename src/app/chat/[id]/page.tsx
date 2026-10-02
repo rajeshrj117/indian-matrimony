@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useRef, useState } from 'react';
+import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft, MoreVertical, CheckCheck, Smile, Send, Ban, Flag, VolumeX, Volume2, Sparkles, Loader2, Check,
@@ -15,6 +15,7 @@ import {
 } from '@/lib/firestore';
 import { useOnlinePresence, useTypingTimeout } from '@/lib/useRealTimeFeatures';
 import { notify } from '@/lib/notify';
+import RuleNoticeBanner, { type RuleNotice } from '@/components/RuleNoticeBanner';
 import { MESSAGE_REACTIONS } from '@/lib/types';
 import type { MatchDoc, MessageDoc, Profile, ReportReason } from '@/lib/types';
 import { getSoundPref, setSoundPref, playSend, playReceive, playHeart, playTap } from '@/lib/sound';
@@ -93,6 +94,18 @@ export default function ChatDetailScreen({ params }: { params: Promise<{ id: str
   // Set when 5 warnings for sexual or abusive messages lock this user's chat.
   const [chatLockedUntil, setChatLockedUntil] = useState<number | null>(null);
   const chatLocked = Boolean(chatLockedUntil && chatLockedUntil > Date.now());
+  const [ruleNotice, setRuleNotice] = useState<RuleNotice | null>(null);
+  const closeRuleNotice = useCallback(() => setRuleNotice(null), []);
+  // Instant in-app alert for refused messages (flirty / romantic / sexual / abusive, or locked chat).
+  const showRuleNotice = (err: ChatLockedError | ContentPolicyError) => {
+    const isRule = err instanceof ChatLockedError || err.rule;
+    setRuleNotice({
+      id: Date.now(),
+      title: isRule ? 'You are against our texting rules' : 'Message not sent',
+      body: err.message,
+    });
+    if (isRule && typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate?.(120);
+  };
   const composerDisabled = chatLocked || Boolean(rateLimitedUntil && rateLimitedUntil > Date.now());
   const [nowTick, setNowTick] = useState(Date.now());
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -279,9 +292,9 @@ export default function ChatDetailScreen({ params }: { params: Promise<{ id: str
       } catch (err) {
         if (err instanceof ChatLockedError) {
           setChatLockedUntil(err.lockedUntil);
-          alert(err.message);
+          showRuleNotice(err);
         } else if (err instanceof ContentPolicyError) {
-          alert(err.message);
+          showRuleNotice(err);
         } else {
           console.error(err);
         }
@@ -319,11 +332,11 @@ export default function ChatDetailScreen({ params }: { params: Promise<{ id: str
         // 5th warning (or already locked): lock the composer and show why.
         setChatLockedUntil(err.lockedUntil);
         setInput('');
-        alert(err.message);
+        showRuleNotice(err);
       } else if (err instanceof ContentPolicyError) {
         // Includes the "Warning n of 5" text for flirty / romantic / sexual messages.
         setInput(value);
-        alert(err.message);
+        showRuleNotice(err);
       } else if (err instanceof BlockedError) {
         alert('This message couldn\u2019t be sent.');
       } else {
@@ -758,6 +771,8 @@ export default function ChatDetailScreen({ params }: { params: Promise<{ id: str
           </button>
         </div>
       )}
+
+      <RuleNoticeBanner notice={ruleNotice} onClose={closeRuleNotice} />
 
       {chatLocked && chatLockedUntil && (
         <div className="flex items-center gap-2 border-t border-[var(--border)] bg-red-50 px-3 py-2">
