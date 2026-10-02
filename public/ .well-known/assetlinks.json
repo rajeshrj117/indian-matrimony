@@ -3,7 +3,9 @@
       "relation": ["delegate_permission/common.handle_all_urls"],
       "target": {
         "namespace": "android_app",
-        "package_name": "app.vercel.flirty_2.twa",
-        "sha256_cert_fingerprints": ["3C:C6:F9:30:72:63:E6:1A:DA:57:B0:5D:B4:03:3A:F5:5B:EA:B7:B6:10:29:28:11:81:A8:77:9C:BF:CD:08:2C"]
+        "package_name": "com.indianshaadi.matrimony",
+"sha256_cert_fingerprints": [
+        "31:B8:0F:53:E2:E3:BB:72:E1:C0:64:B2:EE:F4:2E:AD:A3:79:23:8D:2B:FD:CF:21:65:35:96:07:6B:88:70:1B"
+      ]
       }
     }]
