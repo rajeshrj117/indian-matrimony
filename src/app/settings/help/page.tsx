@@ -9,7 +9,7 @@ const FAQS = [
   { q: 'How do I get verified?', a: 'Go to Profile → Verification and take a quick selfie. Verified profiles get a blue checkmark and show up higher in Discover.' },
   { q: 'How do I block or report someone?', a: 'Open their profile or chat, tap the menu icon, and choose Block or Report. You can manage your blocked list from Profile → Privacy & Safety.' },
   { q: 'Can I change my photos later?', a: 'Yes — tap the camera icon on your profile photo anytime to upload a new one.' },
-  { q: 'How do I cancel Flirty Premium?', a: 'Go to Profile → Flirty Premium → Manage plan, and turn off auto-renew. You\'ll keep premium features until the period ends.' },
+  { q: 'How do I cancel Indian Shaadi Matrimony?', a: 'Go to Profile → Indian Shaadi Matrimony → Manage plan, and turn off auto-renew. You\'ll keep premium features until the period ends.' },
   { q: 'Is my data safe?', a: 'Your data is stored securely and only shared with matches you choose to talk to. You can download or delete your data anytime from Privacy & Safety.' },
 ];
 
@@ -63,11 +63,11 @@ export default function HelpPage() {
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--inputBg)]"><Mail size={16} color="var(--text)" /></span>
             <span>
               <p className="font-bold text-[var(--text)]">Email support</p>
-              <p className="text-xs text-[var(--muted)]">support@flirty.app • replies within 48 hours</p>
+              <p className="text-xs text-[var(--muted)]">support@Indian-Shaadi-Matrimony • replies within 48 hours</p>
             </span>
           </a>
           <a
-            href="https://wa.me/910000000000?text=Hi%20Flirty%20team%2C%20I%20need%20help%20with..."
+            href="https://wa.me/7708777372?text=Hi%Indian Shaadi Matrimony%20team%2C%20I%20need%20help%20with..."
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3.5"

@@ -86,7 +86,7 @@ function MeaningfulScreen() {
         </div>
 
         {/* feature chips */}
-        <div className="mt-6 grid w-full max-w-[340px] grid-cols-2 gap-2.5">
+        <div className="mt-6 relative bottom-3 grid w-full max-w-[340px] grid-cols-2 gap-2.5">
           {FEATURES.map(({ Icon, label }) => (
             <div key={label} className="flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-3 py-2.5">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--inputBg)]">

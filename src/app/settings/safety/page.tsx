@@ -51,7 +51,7 @@ export default function SafetyCenterPage() {
       <Card>
         <div className="mb-1 flex items-center gap-2"><Lock size={18} color="var(--primary)" /><p className="font-extrabold">Verification requirement</p></div>
         <P>
-          On Flirty, <b>men must pass face verification before they can send a message</b>. Women and other accounts can message as
+          On Indian Shaadi Matrimony, <b>men must pass face verification before they can send a message</b>. Women and other accounts can message as
           soon as their profile is complete, without waiting on verification. Your phone number, email, date of birth and exact
           location are never shown to other members.
         </P>

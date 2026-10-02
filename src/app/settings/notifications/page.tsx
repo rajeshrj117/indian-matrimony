@@ -79,7 +79,7 @@ export default function NotificationsPage() {
             <BellRing size={20} color="#2563EB" className="shrink-0" />
             <span>
               <p className="text-sm font-extrabold text-blue-900">Enable browser notifications</p>
-              <p className="text-xs text-blue-800">So Flirty can alert you while this tab is open</p>
+              <p className="text-xs text-blue-800">So Indian Shaadi Matrimony can alert you while this tab is open</p>
             </span>
           </button>
         )}

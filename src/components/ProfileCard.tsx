@@ -70,39 +70,46 @@ function MainAction({ state, busy, h }: { state: InterestState; busy: boolean; h
 }
 
 // ★★★★☆ 8.2/10 (12) · ♥ 48 liked — avg trust stars (0-10) drawn on a 5-star scale.
-function RatingRow({ summary, onRate }: { summary?: RatingSummary | null; onRate?: () => void }) {
+// Rendered as an overlay along the bottom of the profile photo. The wrapper ignores pointer events
+// so taps on the dark fade still open the profile; only the pill itself opens the rating sheet.
+function RatingOverlay({ summary, onRate }: { summary?: RatingSummary | null; onRate?: () => void }) {
   if (!summary && !onRate) return null;
   const has = summary && summary.starsCount > 0;
   const filled = has ? summary.avgStars / 2 : 0; // 0-10 -> 0-5
   const likes = summary?.totalLikes ?? 0;
   return (
-    <button
-      onClick={onRate}
-      disabled={!onRate}
-      className="mt-2.5 flex w-full items-center gap-2 rounded-2xl bg-[var(--inputBg)] px-3 py-2 text-left"
-      aria-label="Rate this profile"
+    <div
+      className="pointer-events-none absolute inset-x-0 bottom-0 rounded-b-2xl px-2.5 pb-2.5 pt-10"
+      style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0))' }}
     >
-      <span className="flex items-center gap-0.5">
-        {Array.from({ length: 5 }).map((_, i) => {
-          const f = Math.max(0, Math.min(1, filled - i));
-          return (
-            <span key={i} className="relative inline-block h-[15px] w-[15px]">
-              <Star size={15} color={GOLD} fill="transparent" className="absolute inset-0" />
-              <span className="absolute inset-0 overflow-hidden" style={{ width: `${f * 100}%` }}>
-                <Star size={15} color={GOLD} fill={GOLD} />
+      <button
+        onClick={onRate}
+        disabled={!onRate}
+        className="pointer-events-auto flex w-full items-center gap-2 rounded-xl bg-black/45 px-2.5 py-1.5 text-left backdrop-blur-sm"
+        aria-label="Rate this profile"
+      >
+        <span className="flex items-center gap-0.5">
+          {Array.from({ length: 5 }).map((_, i) => {
+            const f = Math.max(0, Math.min(1, filled - i));
+            return (
+              <span key={i} className="relative inline-block h-[14px] w-[14px]">
+                <Star size={14} color={GOLD} fill="transparent" className="absolute inset-0" />
+                <span className="absolute inset-0 overflow-hidden" style={{ width: `${f * 100}%` }}>
+                  <Star size={14} color={GOLD} fill={GOLD} />
+                </span>
               </span>
-            </span>
-          );
-        })}
-      </span>
-      <span className="text-[13px] font-extrabold text-[var(--text)]">
-        {has ? summary.avgStars.toFixed(1) : 'No ratings'}
-        {has && <span className="font-semibold text-[var(--muted)]"> /10 ({summary.starsCount})</span>}
-      </span>
-      <span className="ml-auto flex items-center gap-1 text-[13px] font-extrabold text-[var(--text)]">
-        <Heart size={13} color="#FB4E7A" fill="#FB4E7A" /> {likes} <span className="font-semibold text-[var(--muted)]">liked</span>
-      </span>
-    </button>
+            );
+          })}
+        </span>
+        <span className="text-[12px] font-extrabold text-white">
+          {has ? summary.avgStars.toFixed(1) : 'No ratings'}
+          {has && <span className="font-semibold text-white/70"> /10 ({summary.starsCount})</span>}
+        </span>
+        <span className="ml-auto flex items-center gap-1 text-[12px] font-extrabold text-white">
+          <Heart size={12} color="#FB4E7A" fill="#FB4E7A" /> {likes} <span className="font-semibold text-white/70">liked</span>
+        </span>
+      </button>
+    </div>
   );
 }
 
@@ -157,14 +164,19 @@ export default function ProfileCard({
             </span>
           )}
         </button>
-        {profile.verified && (
-          <span className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-emerald-500 px-2.5 py-1 text-[12px] font-extrabold text-white shadow">
-            <Check size={13} strokeWidth={3} /> Verified
-          </span>
+        {(profile.verified || profile.online) && (
+          <div className="absolute left-3 top-3 flex flex-col items-start gap-1.5">
+            {profile.verified && (
+              <span className="flex items-center gap-1 rounded-full bg-emerald-500 px-2.5 py-1 text-[12px] font-extrabold text-white shadow">
+                <Check size={13} strokeWidth={3} /> Verified
+              </span>
+            )}
+            {profile.online && (
+              <span className="rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-extrabold text-white">● Online</span>
+            )}
+          </div>
         )}
-        {profile.online && (
-          <span className="absolute bottom-3 left-3 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-extrabold text-white">● Online</span>
-        )}
+        {showRatings && <RatingOverlay summary={rating} onRate={handlers.onRate} />}
         {showRatings && handlers.onToggleLike && (
           <button
             onClick={handlers.onToggleLike}
@@ -243,13 +255,6 @@ export default function ProfileCard({
           {horo && horo.overall !== null && (
             <span className="shrink-0 rounded-full bg-[#5B3FD1] px-2.5 py-0.5 text-[12px] font-extrabold text-white">{horo.overall}% match</span>
           )}
-        </div>
-      )}
-
-      {/* Star rating + liked */}
-      {showRatings && (
-        <div className="mx-1">
-          <RatingRow summary={rating} onRate={handlers.onRate} />
         </div>
       )}
 
