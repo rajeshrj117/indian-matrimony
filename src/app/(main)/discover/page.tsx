@@ -206,7 +206,7 @@ export default function SearchScreen() {
               key={id}
               onClick={() => setChip(id)}
               aria-pressed={on}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-bold shadow-sm ${on ? 'text-white' : 'border border-[var(--border)] bg-[var(--card)]  dark:text-white'}`}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-bold shadow-sm ${on ? 'text-white' : 'border border-[var(--border)] bg-[var(--card)] text-[var(--text)]'}`}
               style={on ? { background: '#da3036' } : undefined}
             >
               <Icon size={15} color={on ? '#fff' : '#da3036'} /> {label}
