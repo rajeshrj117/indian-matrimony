@@ -16,6 +16,7 @@ export default function SettingsHubScreen() {
 
   const languageLabel = LANGUAGES.find((l) => l.code === lang)?.label ?? 'English';
 
+  const showVerification = profile?.gender === 'Male' || profile?.verified === true || profile?.verificationStatus === 'verified';
   const ITEMS = [
     { key: 'matrimony', icon: HeartHandshake, label: 'Marriage profile', sub: 'Height, religion, community, education, family', href: '/settings/matrimony' },
     {
@@ -35,7 +36,7 @@ export default function SettingsHubScreen() {
     { key: 'notifications', icon: Bell, label: t('notifications'), sub: t('notificationsSub'), href: '/settings/notifications' },
     { key: 'language', icon: Globe, label: t('language'), sub: languageLabel, href: '/settings/language' },
     { key: 'help', icon: HelpCircle, label: t('help'), sub: t('helpSub'), href: '/settings/help' },
-  ];
+  ].filter((i) => i.key !== 'verification' || showVerification);
 
   const doLogout = async () => {
     await logout();

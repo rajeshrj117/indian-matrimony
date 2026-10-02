@@ -311,11 +311,7 @@ export function AboutSection({ form, set }: SectionProps) {
           placeholder="I am a family-oriented person who enjoys cooking and long walks. I value honesty and respect…"
           onChange={(e) => set('bio', e.target.value.slice(0, MAX_BIO))}
         />
-        <button type="button" onClick={enhance} disabled={!form.bio.trim() || enhancing}
-          className="mt-2.5 flex items-center gap-1 rounded-full bg-[var(--primary)] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">
-          {enhancing ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-          {enhancing ? 'Enhancing…' : 'AI Enhance'}
-        </button>
+     
         {error && <p className="mt-2 text-xs font-semibold text-red-600">{error}</p>}
       </Field>
       <Field label={`Hobbies & interests • ${form.interests.length}/8`}>

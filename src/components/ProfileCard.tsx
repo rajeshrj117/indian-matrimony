@@ -29,7 +29,7 @@ type Handlers = {
 // Main action pill(s) — changes with where the interest stands between me and this person.
 function MainAction({ state, busy, h }: { state: InterestState; busy: boolean; h: Handlers }) {
   const pill = 'flex h-12 items-center justify-center gap-2 rounded-full text-[15px] font-extrabold text-white shadow-md disabled:opacity-60';
-  const pillBg = { background: 'linear-gradient(90deg, #F0148C, #FF8A4C)' };
+  const pillBg = { background: 'linear-gradient(90deg, #da3036, #da3036)' };
 
   if (state.state === 'connected') {
     return (
@@ -190,16 +190,16 @@ export default function ProfileCard({
           aria-pressed={shortlisted}
           className="-mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full disabled:opacity-60"
         >
-          <Bookmark size={22} color={shortlisted ? '#F0148C' : 'var(--muted)'} fill={shortlisted ? '#F0148C' : 'none'} />
+          <Bookmark size={22} color={shortlisted ? '#da3036' : 'var(--muted)'} fill={shortlisted ? '#da3036' : 'none'} />
         </button>
       </div>
 
       {/* Details */}
       <button onClick={handlers.onOpen} className="mt-1 flex w-full items-start gap-2 px-1 text-left">
         <span className="min-w-0 flex-1 space-y-1.5 text-[14px] text-[var(--muted)]">
-          {place && <span className="flex items-center gap-2"><MapPin size={16} color="#5B3FD1" className="shrink-0" /><span className="truncate">{place}</span></span>}
-          {study && <span className="flex items-center gap-2"><GraduationCap size={16} color="#5B3FD1" className="shrink-0" /><span className="truncate">{study}</span></span>}
-          {community && <span className="flex items-center gap-2"><Users size={16} color="#5B3FD1" className="shrink-0" /><span className="truncate">{community}</span></span>}
+          {place && <span className="flex items-center gap-2"><MapPin size={16}  className="shrink-0" /><span className="truncate">{place}</span></span>}
+          {study && <span className="flex items-center gap-2"><GraduationCap size={16}  className="shrink-0" /><span className="truncate">{study}</span></span>}
+          {community && <span className="flex items-center gap-2"><Users size={16}  className="shrink-0" /><span className="truncate">{community}</span></span>}
         </span>
         {height && (
           <span className="mt-0.5 flex shrink-0 items-center gap-1 text-[14px] font-semibold text-[var(--muted)]">
@@ -210,11 +210,11 @@ export default function ProfileCard({
 
       {/* Interest tags */}
       {tags.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2 px-1">
+        <div className="mt-3 flex flex-wrap gap-2 px-1 text-[#474c50]">
           {tags.slice(0, 3).map((t) => (
-            <span key={t} className="rounded-full bg-[#F1ECFF] px-3 py-1 text-[13px] font-bold text-[#5B3FD1]">{t}</span>
+            <span key={t} className="rounded-full bg-[#fff1f3] px-3 py-1 text-[13px] font-bold ">{t}</span>
           ))}
-          {tags.length > 3 && <span className="rounded-full bg-[#F1ECFF] px-3 py-1 text-[13px] font-bold text-[#5B3FD1]">+{tags.length - 3}</span>}
+          {tags.length > 3 && <span className="rounded-full bg-[#fff1f3] px-3 py-1 text-[13px] font-bold">+{tags.length - 3}</span>}
         </div>
       )}
 

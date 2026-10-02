@@ -44,8 +44,8 @@ export default function SafetyCenterPage() {
           'It does NOT mean we have run a background check.',
           'You can still be scammed by a verified profile — keep the safety tips below in mind.',
         ]} />
-        <P>{verified ? 'You\u2019re verified. \uD83C\uDF89' : profile?.gender === 'Male' ? 'Not verified yet? Verify in Settings \u2192 Verification to start chatting.' : 'Not verified yet? It\u2019s optional for you, but verifying builds extra trust with matches.'}</P>
-        {!verified && <Link href="/settings/verification" className="font-extrabold text-[var(--primary)]">Get verified →</Link>}
+        <P>{verified ? 'You\u2019re verified. \uD83C\uDF89' : profile?.gender === 'Male' ? 'Not verified yet? Verify in Settings \u2192 Verification to start chatting.' : 'Face verification is only required for men, so you don\u2019t need to do anything.'}</P>
+        {!verified && profile?.gender === 'Male' && <Link href="/settings/verification" className="font-extrabold text-[var(--primary)]">Get verified →</Link>}
       </Card>
 
       <Card>

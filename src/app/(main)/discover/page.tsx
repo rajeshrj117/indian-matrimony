@@ -153,9 +153,9 @@ export default function SearchScreen() {
           <button
             onClick={() => router.push('/notifications')}
             aria-label="Notifications"
-            className="relative flex h-11 w-11 items-center justify-center rounded-full bg-[#F1ECFF]"
+            className="relative flex h-11 w-11 items-center justify-center rounded-full bg-[#fff1f3]"
           >
-            <Bell size={20} color="#2A1F6B" />
+            <Bell size={20}  />
             {hasUnread && <span className="absolute right-0 top-0 h-3 w-3 rounded-full border-2 border-white bg-[#F0148C]" />}
           </button>
           <button
@@ -163,7 +163,7 @@ export default function SearchScreen() {
             aria-label="My profile"
             className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)]"
           >
-            <User size={20} color="#5B3FD1" />
+            <User size={20}  />
           </button>
         </div>
       </header>
@@ -200,7 +200,7 @@ export default function SearchScreen() {
         </button>
       </div>
 
-      {!profile.verified && <GetVerifiedPrompt onPress={() => router.push('/settings/verification')} />}
+      {profile.gender === 'Male' && !profile.verified && <GetVerifiedPrompt onPress={() => router.push('/settings/verification')} />}
 
       <div className="flex gap-2 overflow-x-auto px-4 pb-3">
         {CHIPS.map(({ id, label, Icon }) => {
@@ -210,10 +210,10 @@ export default function SearchScreen() {
               key={id}
               onClick={() => setChip(id)}
               aria-pressed={on}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-bold shadow-sm ${on ? 'text-white' : 'border border-[var(--border)] bg-[var(--card)] text-[#2A1F6B] dark:text-white'}`}
-              style={on ? { background: '#F0148C' } : undefined}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-bold shadow-sm ${on ? 'text-white' : 'border border-[var(--border)] bg-[var(--card)]  dark:text-white'}`}
+              style={on ? { background: '#da3036' } : undefined}
             >
-              <Icon size={15} color={on ? '#fff' : '#E11D9C'} /> {label}
+              <Icon size={15} color={on ? '#fff' : '#da3036'} /> {label}
             </button>
           );
         })}

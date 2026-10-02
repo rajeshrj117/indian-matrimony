@@ -255,13 +255,16 @@ export default function ChatDetailScreen({ params }: { params: Promise<{ id: str
     }, 3000);
   };
 
+  // Only men need the blue check to message (same rule as canMessage() in firestore.rules).
+  const canChat = isVerified(myProfile) || (!!myProfile && myProfile.gender !== 'Male');
+
   const send = async (text?: string) => {
     const value = (text ?? input).trim();
     if (!value || !user) return;
     // Belt-and-braces: the composer UI is already hidden until verified (see the
     // render below), and firestore.rules rejects the write server-side regardless —
     // this just avoids a pointless round-trip if it's somehow called anyway.
-    if (!isVerified(myProfile)) return;
+    if (!canChat) return;
 
     if (rateLimitedUntil && Date.now() < rateLimitedUntil) return;
     if (chatLocked) return;
@@ -796,7 +799,7 @@ export default function ChatDetailScreen({ params }: { params: Promise<{ id: str
         </>
       )}
 
-      {isVerified(myProfile) ? (
+      {canChat ? (
         <div className="border-t border-[var(--border)] bg-[var(--card)]">
           <div className="flex items-center gap-2 p-3">
             <button

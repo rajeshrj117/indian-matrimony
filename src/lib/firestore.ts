@@ -1034,9 +1034,10 @@ export async function updateOnlyVerifiedCanMessage(uid: string, onlyVerifiedCanM
 // while it's on. Turning womenSafetyMode off leaves onlyVerifiedCanMessage as-is, since the
 // user may have wanted that setting independent of women safety mode.
 export async function updateWomenSafetyMode(uid: string, womenSafetyMode: boolean) {
-  const updates: Record<string, boolean> = { womenSafetyMode };
-  if (womenSafetyMode) updates.onlyVerifiedCanMessage = true;
-  await updateDoc(doc(db, 'users', uid), updates);
+  // womenSafetyMode is not on the public users/{uid} allowlist (firestore.rules), so it lives in
+  // userPrivate/{uid}; only onlyVerifiedCanMessage is public.
+  await updatePrivate(uid, { womenSafetyMode });
+  if (womenSafetyMode) await updateDoc(doc(db, 'users', uid), { onlyVerifiedCanMessage: true });
 }
 
 export type PresenceInfo = { online: boolean; lastSeenAt?: number; hideLastSeen?: boolean };

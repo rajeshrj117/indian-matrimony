@@ -26,6 +26,7 @@ export default function ProfileScreen() {
 
   const languageLabel = LANGUAGES.find((l) => l.code === lang)?.label ?? 'English';
 
+  const showVerification = profile?.gender === 'Male' || profile?.verified === true || profile?.verificationStatus === 'verified';
   const SETTINGS = [
     { key: 'dark', icon: Moon, label: t('darkMode'), type: 'switch' as const },
     {
@@ -44,7 +45,7 @@ export default function ProfileScreen() {
     { key: 'notifications', icon: Bell, label: t('notifications'), sub: t('notificationsSub'), type: 'arrow' as const, href: '/settings/notifications' },
     { key: 'language', icon: Globe, label: t('language'), sub: languageLabel, type: 'arrow' as const, href: '/settings/language' },
     { key: 'help', icon: HelpCircle, label: t('help'), sub: t('helpSub'), type: 'arrow' as const, href: '/settings/help' },
-  ];
+  ].filter((i) => i.key !== 'verification' || showVerification);
   const [editing, setEditing] = useState(false);
   const [bioDraft, setBioDraft] = useState(profile?.bio ?? '');
   const [saving, setSaving] = useState(false);
