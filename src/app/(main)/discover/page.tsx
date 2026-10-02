@@ -143,11 +143,7 @@ export default function SearchScreen() {
 
       <header className="flex items-center justify-between px-4 pb-2 pt-3">
         <div className="flex items-center gap-2.5">
-          <Heart size={38} color="#C026D3" fill="#EC4899" strokeWidth={2.2} />
-          <div className="leading-tight">
-            <h1 className="text-[26px] font-black tracking-tight text-[#2A1F6B] dark:text-white">{APP_NAME}</h1>
-            <p className="text-[12px] font-medium text-[var(--muted)]">Real People. Real Connections.</p>
-          </div>
+        <img src="/logo.png" alt="Indian Shaadi Matrimony" width="180" />
         </div>
         <div className="flex items-center gap-2.5">
           <button
