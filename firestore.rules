@@ -26,7 +26,10 @@ service cloud.firestore {
 
     // False for accounts a moderator has restricted / suspended / banned.
     function isPremium(uid) {
-      return exists(privPath(uid)) && get(privPath(uid)).data.get('premium', false) == true;
+      // ALL_FEATURES_FREE: every signed-in user counts as premium. To restore the paywall,
+      // replace the line below with:
+      // return exists(privPath(uid)) && get(privPath(uid)).data.get('premium', false) == true;
+      return request.auth != null;
     }
 
     function notModerated(uid) {
@@ -131,7 +134,8 @@ service cloud.firestore {
       let before = resource.data;
       let after = request.resource.data;
       return after.get('verified', false) == before.get('verified', false)
-        && after.get('verificationStatus', 'none') != 'verified';
+        && (after.get('verificationStatus', 'none') != 'verified'
+            || before.get('verificationStatus', 'none') == 'verified');
     }
 
     // ---------------- Public profile ----------------
@@ -145,12 +149,13 @@ service cloud.firestore {
           'uid', 'name', 'age', 'gender', 'interestedIn', 'relationship', 'bio', 'expectations',
           'work', 'drinking', 'smoking', 'location', 'approxLatitude', 'approxLongitude', 'job',
           'interests', 'images', 'verified', 'verificationStatus', 'online', 'lastSeenAt',
-          'hideLastSeen', 'onlyVerifiedCanMessage', 'profileComplete', 'createdAt', 'updatedAt',
+          'hideLastSeen', 'photoPrivacy', 'onlyVerifiedCanMessage', 'profileComplete', 'createdAt', 'updatedAt',
           'profileFor', 'maritalStatus', 'heightCm', 'religion', 'community', 'motherTongue',
           'education', 'annualIncome', 'diet', 'state', 'createdBy', 'occupation', 'nativePlace',
           'willingToRelocate', 'nriStatus', 'countryOfResidence', 'familyDetails', 'partnerPreferences',
           'star', 'rashi', 'manglik'
         ])
+        && request.resource.data.get('photoPrivacy', 'public') in ['public', 'blur', 'hidden']
         && request.resource.data.get('uid', uid) == uid;
 
       // A field allowlist (hasOnly) means phone/email/DOB/exact location can never be written
@@ -164,13 +169,14 @@ service cloud.firestore {
           'uid', 'name', 'age', 'gender', 'interestedIn', 'relationship', 'bio', 'expectations',
           'work', 'drinking', 'smoking', 'location', 'approxLatitude', 'approxLongitude', 'job',
           'interests', 'images', 'verified', 'verificationStatus', 'online', 'lastSeenAt',
-          'hideLastSeen', 'onlyVerifiedCanMessage', 'profileComplete', 'createdAt', 'updatedAt',
+          'hideLastSeen', 'photoPrivacy', 'onlyVerifiedCanMessage', 'profileComplete', 'createdAt', 'updatedAt',
           'profileFor', 'maritalStatus', 'heightCm', 'religion', 'community', 'motherTongue',
           'education', 'annualIncome', 'diet', 'state', 'createdBy', 'occupation', 'nativePlace',
           'willingToRelocate', 'nriStatus', 'countryOfResidence', 'familyDetails', 'partnerPreferences',
           'star', 'rashi', 'manglik',
           'moderated'
-        ]);
+        ])
+        && request.resource.data.get('photoPrivacy', 'public') in ['public', 'blur', 'hidden'];
       allow delete: if signedIn() && request.auth.uid == uid;
     }
 
@@ -256,8 +262,9 @@ service cloud.firestore {
     // withdraw a still-pending interest by deleting it; a declined/accepted one is permanent,
     // so a declined person can't keep re-sending.
     match /interests/{interestId} {
+      // resource == null lets the client check "does this doc exist?" without a permission error.
       allow read: if signedIn()
-        && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+        && (resource == null || resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
 
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly(['from', 'to', 'status', 'message', 'createdAt', 'updatedAt'])
@@ -285,7 +292,7 @@ service cloud.firestore {
 
     // ---------------- Shortlist (private bookmarks) ----------------
     match /shortlists/{shortlistId} {
-      allow read: if signedIn() && resource.data.owner == request.auth.uid;
+      allow read: if signedIn() && (resource == null || resource.data.owner == request.auth.uid);
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly(['owner', 'target', 'createdAt'])
         && request.resource.data.owner == request.auth.uid
@@ -437,7 +444,7 @@ service cloud.firestore {
 
     // ---------------- Phase 3 contact requests ----------------
     match /contactRequests/{requestId} {
-      allow read: if signedIn() && (resource.data.requester == request.auth.uid || resource.data.target == request.auth.uid);
+      allow read: if signedIn() && (resource == null || resource.data.requester == request.auth.uid || resource.data.target == request.auth.uid);
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly(['requester','target','type','status','createdAt','updatedAt'])
         && request.resource.data.requester == request.auth.uid
@@ -458,7 +465,7 @@ service cloud.firestore {
 
     // ---------------- Private photo access requests ----------------
     match /photoAccessRequests/{requestId} {
-      allow read: if signedIn() && (resource.data.requester == request.auth.uid || resource.data.owner == request.auth.uid);
+      allow read: if signedIn() && (resource == null || resource.data.requester == request.auth.uid || resource.data.owner == request.auth.uid);
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly(['requester','owner','status','createdAt','updatedAt'])
         && request.resource.data.requester == request.auth.uid
@@ -490,7 +497,7 @@ service cloud.firestore {
 
     // ---------------- Premium messaging ----------------
     match /premiumMessages/{messageId} {
-      allow read: if signedIn() && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+      allow read: if signedIn() && (resource == null || resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly(['from','to','text','status','createdAt','updatedAt'])
         && request.resource.data.from == request.auth.uid
@@ -512,7 +519,7 @@ service cloud.firestore {
 
     // ---------------- Parent / family accounts ----------------
     match /familyAccounts/{id} {
-      allow read: if signedIn() && resource.data.owner == request.auth.uid;
+      allow read: if signedIn() && (resource == null || resource.data.owner == request.auth.uid);
       allow create: if signedIn()
         && request.resource.data.owner == request.auth.uid
         && request.resource.data.keys().hasOnly(['id','owner','memberUid','memberEmail','memberName','role','permissions','status','createdAt','updatedAt'])
