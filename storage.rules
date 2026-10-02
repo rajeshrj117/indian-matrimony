@@ -22,8 +22,6 @@ service firebase.storage {
         && request.resource.contentType.matches('image/(jpeg|png|webp|heic|heif)');
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
-  }
-}
 
     // Private gallery photos are not listed on public profiles. The download URL is only
     // surfaced to a requester after the owner approves a photoAccessRequests document.
@@ -36,3 +34,5 @@ service firebase.storage {
         && request.resource.contentType.matches('image/(jpeg|png|webp|heic|heif)');
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
+  }
+}
