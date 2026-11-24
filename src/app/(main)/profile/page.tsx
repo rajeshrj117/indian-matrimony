@@ -141,8 +141,8 @@ export default function ProfileScreen() {
 
   const onDeletePhoto = async (index: number) => {
     if (!user || !profile) return;
-    if (profile.images.length <= 1) {
-      alert('You need at least one photo on your profile.');
+    if (profile.images.length <= 1 && profile.gender === 'Male') {
+      alert('Male profiles need at least one photo.');
       return;
     }
     setDeletingIndex(index);

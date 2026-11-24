@@ -2,10 +2,11 @@ import 'server-only';
 import type { Firestore } from 'firebase-admin/firestore';
 import { ApiError, pairId } from './guard';
 
-export type NotifyType = 'like' | 'match' | 'message' | 'superlike' | 'interest' | 'accepted';
-export const NOTIFY_TYPES: NotifyType[] = ['like', 'match', 'message', 'superlike', 'interest', 'accepted'];
+export type NotifyType = 'like' | 'match' | 'message' | 'superlike' | 'interest' | 'accepted' | 'shortlist' | 'rating';
+export const NOTIFY_TYPES: NotifyType[] = ['like', 'match', 'message', 'superlike', 'interest', 'accepted', 'shortlist', 'rating'];
 const PREF_KEY: Record<NotifyType, 'likes' | 'matches' | 'messages'> = {
-  like: 'likes', superlike: 'likes', interest: 'likes', match: 'matches', accepted: 'matches', message: 'messages',
+  like: 'likes', superlike: 'likes', interest: 'likes', shortlist: 'likes', rating: 'likes',
+  match: 'matches', accepted: 'matches', message: 'messages',
 };
 
 export const PUSH_COPY: Record<NotifyType, (n: string) => { title: string; body: string }> = {
@@ -15,6 +16,8 @@ export const PUSH_COPY: Record<NotifyType, (n: string) => { title: string; body:
   message: (n) => ({ title: n, body: 'Sent you a message' }),
   interest: (n) => ({ title: 'New interest', body: `${n} is interested in your profile` }),
   accepted: (n) => ({ title: 'Interest accepted \uD83C\uDF89', body: `${n} accepted your interest. You can chat now.` }),
+  shortlist: (n) => ({ title: 'Shortlisted \u2B50', body: `${n} added your profile to their shortlist` }),
+  rating: (n) => ({ title: 'New rating', body: `${n} rated your profile` }),
 };
 
 export const PUSH_URL: Record<NotifyType, (matchId?: string) => string> = {
@@ -24,6 +27,8 @@ export const PUSH_URL: Record<NotifyType, (matchId?: string) => string> = {
   message: (m) => (m ? `/chat/${m}` : '/chats'),
   interest: () => '/interests',
   accepted: (m) => (m ? `/chat/${m}` : '/chats'),
+  shortlist: () => '/notifications',
+  rating: () => '/profile',
 };
 
 export type NotifyDecision = {
@@ -70,6 +75,14 @@ export async function authorizeNotification(
     // Caller must have a pending interest on file for the target.
     const i = await db.collection('interests').doc(`${caller}_${target}`).get();
     if (!i.exists || i.data()?.status !== 'pending') return deny;
+  } else if (type === 'shortlist') {
+    // Caller must currently have the target on their shortlist.
+    const s = await db.collection('shortlists').doc(`${caller}_${target}`).get();
+    if (!s.exists) return deny;
+  } else if (type === 'rating') {
+    // Caller must have actually rated the target.
+    const r = await db.collection('ratings').doc(`${caller}_${target}`).get();
+    if (!r.exists) return deny;
   } else if (type === 'accepted') {
     // Caller is the recipient who accepted: the doc is target -> caller, status accepted.
     const i = await db.collection('interests').doc(`${target}_${caller}`).get();

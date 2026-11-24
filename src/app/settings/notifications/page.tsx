@@ -11,7 +11,7 @@ import { DEFAULT_NOTIFICATION_PREFS, type NotificationPrefs } from '@/lib/types'
 const ROWS: { key: keyof NotificationPrefs; label: string; sub: string; icon: typeof Heart }[] = [
   { key: 'matches', label: 'New matches', sub: 'When someone matches with you', icon: Heart },
   { key: 'messages', label: 'Messages', sub: 'When you get a new chat message', icon: MessageCircle },
-  { key: 'likes', label: 'Likes', sub: 'When someone likes your profile', icon: Star },
+  { key: 'likes', label: 'Likes', sub: 'Likes, interests, shortlists and ratings on your profile', icon: Star },
 ];
 
 export default function NotificationsPage() {

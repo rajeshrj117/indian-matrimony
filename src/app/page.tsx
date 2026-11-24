@@ -104,19 +104,23 @@ function MeaningfulScreen() {
 export default function OnboardingScreen() {
   const router = useRouter();
   const [page, setPage] = useState(0);
-  const [ready, setReady] = useState(false);
   const { user, profile, loading } = useAuth();
 
   useEffect(() => {
     if (loading) return;
     if (user && profile?.profileComplete) { router.replace('/discover'); return; }
     if (user) { router.replace('/profile-setup'); return; }
-    const t = setTimeout(() => setReady(true), 0);
-    return () => clearTimeout(t);
   }, [loading, user, profile, router]);
 
-  // Branded loader while auth is resolving or a redirect is in progress
-  if (!ready) return <AppLoader />;
+  // Warm the browser cache with the second welcome screen's pictures while the first is shown.
+  useEffect(() => {
+    if (loading || user) return;
+    [IMG_WOMAN1, IMG_MAN1].forEach((src) => { new Image().src = src; });
+  }, [loading, user]);
+
+  // Loader while auth is resolving or a redirect is in progress; the welcome screens only
+  // render for signed-out visitors (no extra timer tick before showing them).
+  if (loading || user) return <AppLoader />;
 
   const isLast = page === 1;
 
@@ -124,7 +128,7 @@ export default function OnboardingScreen() {
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pb-6 pt-6">
       {/* brand header */}
       <div className="flex items-center justify-center gap-2">
-        <img src="/logo.png" alt="Indian Shaadi Matrimony" width="260" />
+        <img src="/logo.png" alt="Indian Shaadi Matrimony" width="260" height="87" fetchPriority="high" decoding="async" />
       </div>
 
       <div key={page} className="animate-fade-in flex min-h-0 flex-1 flex-col ">

@@ -1,11 +1,12 @@
-
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "com.indianshaadi.matrimony",
-"sha256_cert_fingerprints": [
-        "31:B8:0F:53:E2:E3:BB:72:E1:C0:64:B2:EE:F4:2E:AD:A3:79:23:8D:2B:FD:CF:21:65:35:96:07:6B:88:70:1B"
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "REPLACE_WITH_YOUR_ANDROID_PACKAGE_NAME",
+      "sha256_cert_fingerprints": [
+        "REPLACE_WITH_YOUR_SHA256_FINGERPRINT"
       ]
-      }
-    }]
+    }
+  }
+]

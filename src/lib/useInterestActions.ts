@@ -75,6 +75,7 @@ export function useInterestActions() {
         flash('Removed from shortlist');
       } else {
         await addToShortlist(user!.uid, target.uid);
+        void notify({ toUid: target.uid, type: 'shortlist' });
         flash(`${target.name} added to your shortlist`);
       }
     }), [run, user, flash]);

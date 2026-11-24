@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const result = await getMessaging(getAdminApp()!).sendEachForMulticast({
       tokens,
       notification: { title, body: text },
-      webpush: { fcmOptions: { link: url }, notification: { icon: '/next.svg' } },
+      webpush: { fcmOptions: { link: url }, notification: { icon: '/icons/icon-192.png', badge: '/icons/icon-192.png' } },
     });
 
     const dead = result.responses

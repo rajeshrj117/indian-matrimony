@@ -33,8 +33,8 @@ messaging.onBackgroundMessage((payload) => {
 
   self.registration.showNotification(title, {
     body,
-    icon: '/next.svg',
-    badge: '/next.svg',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
     data: { url },
   });
 });

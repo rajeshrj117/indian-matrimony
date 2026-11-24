@@ -49,6 +49,11 @@ export default function ProfileWizardScreen() {
 
   const finish = async () => {
     if (!user) { router.replace('/auth'); return; }
+    if (form.gender === 'Male' && !photoFile) {
+      setError('A profile photo is required for male profiles.');
+      goTo(0);
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -108,6 +113,11 @@ export default function ProfileWizardScreen() {
 
   const next = () => {
     if (isFinal) { void finish(); return; }
+    // Profile photo is mandatory for male users; optional for everyone else.
+    if (step === 0 && form.gender === 'Male' && !photoFile) {
+      setError('A profile photo is required for male profiles. Please add a clear photo.');
+      return;
+    }
     const problem = validateStep(STEPS[step], form);
     if (problem) { setError(problem); return; }
     goTo(step + 1);
@@ -148,7 +158,7 @@ export default function ProfileWizardScreen() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {photoPreview ? <img src={photoPreview} className="h-full w-full object-cover" alt="" /> : <Camera size={32} color="var(--muted2)" />}
               </button>
-              <p className="mt-1.5 text-[11px] font-bold text-[var(--muted2)]">{photoPreview ? 'TAP TO CHANGE' : 'ADD A CLEAR PHOTO'}</p>
+              <p className="mt-1.5 text-[11px] font-bold text-[var(--muted2)]">{photoPreview ? 'TAP TO CHANGE' : form.gender === 'Male' ? 'ADD A CLEAR PHOTO (REQUIRED)' : 'ADD A CLEAR PHOTO (OPTIONAL)'}</p>
               <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)]">
                 <ShieldCheck size={14} color="var(--success)" /> Verified profiles get far more responses
               </p>

@@ -7,7 +7,7 @@ import {
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage, auth } from '@/lib/firebase';
 import { authedFetch } from '@/lib/api-client';
-import { screenText } from '@/lib/text-safety';
+import { screenText, screenField, validateName } from '@/lib/text-safety';
 import { splitProfile, mergeProfile, PUBLIC_PROFILE_FIELDS, approxCoord } from '@/lib/profile-fields';
 import { calculateDistance } from '@/lib/geo';
 import { matchesFilters, rankProfiles, type SearchFilters } from '@/lib/matrimony';
@@ -219,19 +219,48 @@ async function assertMessageAllowed(uid: string, text: string) {
   if (verdict.level === 'block') throw new ContentPolicyError(verdict.message ?? 'This message goes against our Community Guidelines.', { rule: true });
 }
 
+// Server-side AI screen for profile text. Returns a user-facing message if something must be
+// edited, or null when it is fine (also null on any network / provider error: fail-open).
+async function aiScreenProfile(fields: { label: string; text: string }[]): Promise<string | null> {
+  try {
+    const res = await authedFetch('/api/groq/profile-moderation', { fields });
+    if (!res.ok) return null;
+    const d = await res.json();
+    return d?.allowed === false ? String(d.reason || 'Some of your text goes against our Community Guidelines. Please edit it.') : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function saveProfile(uid: string, data: Partial<Profile>) {
   // Screen every free-text field that ends up on the public profile (no phone numbers, links,
   // social handles, explicit or abusive text).
   const fam = data.familyDetails;
-  const texts: string[] = [
-    data.bio, data.job, data.community, data.nativePlace, data.countryOfResidence,
-    fam?.about, fam?.fatherOccupation, fam?.motherOccupation, data.partnerPreferences?.about,
-  ].filter((t): t is string => typeof t === 'string' && t.length > 0);
-  for (const text of texts) {
-    const v = screenText(text, 'bio');
-    if (v.level === 'block') {
-      void recordAbuseSignal(uid, 'bio', v.flags, true);
-      throw new ContentPolicyError(v.message ?? 'This text goes against our Community Guidelines.');
+  const fields: [string, string | undefined][] = [
+    ['name', data.name], ['bio', data.bio], ['job title', data.job], ['community', data.community],
+    ['city', data.location], ['native place', data.nativePlace], ['country', data.countryOfResidence],
+    ['birth place', data.birthPlace], ['family details', fam?.about],
+    ['father\u2019s occupation', fam?.fatherOccupation], ['mother\u2019s occupation', fam?.motherOccupation],
+    ['partner preferences', data.partnerPreferences?.about],
+  ];
+  const filled = fields.filter((f): f is [string, string] => typeof f[1] === 'string' && f[1].trim().length > 0);
+  if (typeof data.name === 'string' && data.name.trim() && data.name !== 'You') {
+    const nameErr = validateName(data.name);
+    if (nameErr) throw new ContentPolicyError(nameErr);
+  }
+  for (const [label, text] of filled) {
+    const hit = screenField(label, text);
+    if (hit) {
+      void recordAbuseSignal(uid, 'bio', hit.flags, true);
+      throw new ContentPolicyError(hit.message);
+    }
+  }
+  // Second layer: AI check (understands slang, misspellings and mixed languages). Fails open.
+  if (filled.length > 0) {
+    const ai = await aiScreenProfile(filled.map(([label, text]) => ({ label, text })));
+    if (ai) {
+      void recordAbuseSignal(uid, 'bio', ['ai_profile_flagged'], true);
+      throw new ContentPolicyError(ai);
     }
   }
 
@@ -342,6 +371,16 @@ export async function getProfilesByUids(uids: string[]): Promise<Profile[]> {
   const unique = Array.from(new Set(uids));
   const profiles = await Promise.all(unique.map((u) => getProfile(u).catch(() => null)));
   return profiles.filter((p): p is Profile => Boolean(p) && !p!.moderated);
+}
+
+// Looks a member up by their public profile ID (e.g. ISM1234567). Only the public users/{uid}
+// doc is queried, so this works for any signed-in member. Pass an ID already canonicalised by
+// normalizeProfileId().
+export async function getProfileByProfileId(profileId: string): Promise<Profile | null> {
+  const snap = await getDocs(query(collection(db, 'users'), where('profileId', '==', profileId), fsLimit(1)));
+  if (snap.empty) return null;
+  const p = snap.docs[0].data() as Profile;
+  return p.moderated ? null : p;
 }
 
 // ---------- Interests (Send Interest -> Accept / Decline) ----------
@@ -579,7 +618,8 @@ export async function getRatingSummary(uid: string): Promise<RatingSummary> {
   let totalLikes = 0;
   snap.docs.forEach((d) => {
     const r = d.data() as RatingDoc;
-    totalLikes += r.likes ?? 0;
+    // One person = one like, however high they scored (a 10/10 must not add 10 likes).
+    if ((r.likes ?? 0) > 0) totalLikes += 1;
     if (typeof r.stars === 'number') {
       starsTotal += r.stars;
       starsCount += 1;
@@ -605,7 +645,8 @@ export async function getRatingBundle(
   let mine: RatingDoc | null = null;
   snap.docs.forEach((d) => {
     const r = d.data() as RatingDoc;
-    totalLikes += r.likes ?? 0;
+    // One person = one like, however high they scored (a 10/10 must not add 10 likes).
+    if ((r.likes ?? 0) > 0) totalLikes += 1;
     if (typeof r.stars === 'number') {
       starsTotal += r.stars;
       starsCount += 1;

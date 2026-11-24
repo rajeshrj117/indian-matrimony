@@ -55,6 +55,7 @@ export type PartnerPreferences = {
 
 export type Profile = {
   uid: string;
+  profileId?: string; // public member ID, e.g. ISM1234567 (see lib/profile-id.ts)
   // PRIVATE (userPrivate/{uid}) — only present on your own merged profile, never on others'.
   phone?: string | null;
   email?: string | null;
@@ -250,7 +251,7 @@ export type RatingDoc = {
 export type RatingSummary = {
   avgStars: number; // 0-10, average of stars across women who rated this profile; 0 if none yet
   starsCount: number; // how many women have left a star rating
-  totalLikes: number; // sum of the `likes` field across every rating this profile has received
+  totalLikes: number; // how many people liked this profile (rated it with a likes score above 0)
 };
 
 export type MatchDoc = {
@@ -366,7 +367,7 @@ export type FamilyAccountDoc = {
 export type ActivityNotification = {
   id?: string;
   userId: string;
-  type: 'like' | 'match' | 'message' | 'superlike' | 'interest' | 'accepted';
+  type: 'like' | 'match' | 'message' | 'superlike' | 'interest' | 'accepted' | 'shortlist' | 'rating';
   fromUser: string; // display name, derived server-side from the sender's profile
   fromUid?: string;
   matchId?: string;

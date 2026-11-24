@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Heart, Star, MessageCircle, Sparkles, UserCheck } from 'lucide-react';
+import { ChevronLeft, Heart, Star, MessageCircle, Sparkles, UserCheck, Bookmark } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { listenActivityNotifications, markAllNotificationsAsRead, markNotificationAsRead } from '@/lib/firestore';
 import type { ActivityNotification } from '@/lib/types';
@@ -14,6 +14,8 @@ const ICONS: Record<ActivityNotification['type'], typeof Heart> = {
   message: MessageCircle,
   interest: Heart,
   accepted: UserCheck,
+  shortlist: Bookmark,
+  rating: Star,
 };
 
 const formatTime = (ts: number) => {
@@ -36,12 +38,16 @@ function describe(n: ActivityNotification): string {
     case 'message': return `${n.fromUser} sent you a message`;
     case 'interest': return `${n.fromUser} sent you an interest`;
     case 'accepted': return `${n.fromUser} accepted your interest`;
+    case 'shortlist': return `${n.fromUser} shortlisted your profile`;
+    case 'rating': return `${n.fromUser} rated your profile`;
   }
 }
 
 function destinationFor(n: ActivityNotification): string {
   if ((n.type === 'match' || n.type === 'message' || n.type === 'accepted') && n.matchId) return `/chat/${n.matchId}`;
   if (n.type === 'like' || n.type === 'superlike' || n.type === 'interest') return '/interests';
+  if (n.type === 'shortlist' && n.fromUid) return `/user/${n.fromUid}`;
+  if (n.type === 'rating') return '/profile';
   return '/chats';
 }
 

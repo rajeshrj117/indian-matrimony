@@ -1,21 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 
+// Redirects away unless the visitor is signed in with a completed profile, and reports
+// whether the protected screen can render yet.
 export function useAuthGuard() {
   const router = useRouter();
   const { user, profile, loading } = useAuth();
-  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     if (loading) return;
     if (!user) { router.replace('/auth'); return; }
     if (!profile?.profileComplete) { router.replace('/profile-setup'); return; }
-    const t = setTimeout(() => setReady(true), 0);
-    return () => clearTimeout(t);
   }, [loading, user, profile, router]);
 
-  return ready;
+  return !loading && Boolean(user) && Boolean(profile?.profileComplete);
 }

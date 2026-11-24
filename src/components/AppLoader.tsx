@@ -1,7 +1,6 @@
-'use client';
-
-// Full-screen branded loader. Uses the sharp /icons/icon-512.png (no stretching),
-// a soft pulse and a thin spinner ring so it never looks like a frozen blurry logo.
+// Full-screen branded loader: spinning ring + pulsing heart + label.
+// Rendered from the very first paint (no logo-only splash variant first), so there is only
+// ever one loader on screen.
 export default function AppLoader({ label }: { label?: string }) {
   return (
     <div

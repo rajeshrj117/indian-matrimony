@@ -1,6 +1,7 @@
 import type {
   FamilyDetails, ManglikStatus, NriStatus, PartnerPreferences, Profile, ProfileCreatedBy, RelocationPreference,
 } from '@/lib/types';
+import { screenField, validateName } from '@/lib/text-safety';
 import { HEIGHT_MAX_CM, HEIGHT_MIN_CM } from '@/lib/matrimony';
 
 // Flat, string-based form state shared by the sign-up wizard (/profile-setup) and the edit
@@ -242,11 +243,36 @@ export function profileDataFromForm(f: ProfileForm, opts: { clearBlanks?: boolea
 
 export type StepId = 'basics' | 'background' | 'career' | 'location' | 'family' | 'horoscope' | 'about' | 'partner';
 
+// Instant feedback while filling the wizard: bad words / phone numbers / links in this step's text fields.
+function screenStep(step: StepId, f: ProfileForm): string | null {
+  const fields: Record<string, [string, string | undefined][]> = {
+    basics: [['name', f.name]],
+    background: [['community', f.community]],
+    career: [['job title', f.job]],
+    location: [['city', f.location], ['native place', f.nativePlace], ['country', f.countryOfResidence]],
+    family: [['father\u2019s occupation', f.fatherOccupation], ['mother\u2019s occupation', f.motherOccupation], ['family details', f.familyAbout]],
+    horoscope: [['birth place', f.birthPlace]],
+    about: [['bio', f.bio]],
+    partner: [['partner preferences', f.prefs.about]],
+  };
+  for (const [label, text] of fields[step] ?? []) {
+    const hit = screenField(label, text);
+    if (hit) return hit.message;
+  }
+  return null;
+}
+
 export function validateStep(step: StepId, f: ProfileForm): string | null {
+  const problem = validateStepRequired(step, f);
+  return problem ?? screenStep(step, f);
+}
+
+function validateStepRequired(step: StepId, f: ProfileForm): string | null {
   switch (step) {
     case 'basics':
       if (!f.createdBy) return 'Tell us who is creating this profile';
       if (!f.name.trim()) return 'Please enter the name of the person getting married';
+      { const nameErr = validateName(f.name); if (nameErr) return nameErr; }
       if (!f.dob) return 'Please enter the date of birth';
       if (!f.gender) return 'Please select gender';
       return null;

@@ -12,6 +12,7 @@ import {
 } from '@/lib/firestore';
 import { shareOrCopy } from '@/lib/share';
 import { useInterestActions } from '@/lib/useInterestActions';
+import { notify } from '@/lib/notify';
 import { APP_NAME } from '@/lib/brand';
 import { communityLine, factsLine } from '@/lib/matrimony';
 import ProfileDetails from '@/components/ProfileDetails';
@@ -19,7 +20,6 @@ import Toast from '@/components/Toast';
 import type { Profile, ReportReason, RatingDoc, RatingSummary } from '@/lib/types';
 import PhotoLightbox from '@/components/PhotoLightbox';
 import { VerifiedPill, PremiumPill, NameCheckmark, VerifiedTrustStrip } from '@/components/VerifiedBadges';
-import Phase3Actions from '@/components/Phase3Actions';
 import { TrustRatingStrip, RateSheet } from '@/components/TrustRating';
 
 const REPORT_REASONS: { id: ReportReason; label: string }[] = [
@@ -294,8 +294,6 @@ export default function UserDetailScreen({ params }: { params: Promise<{ id: str
 
           <ProfileDetails profile={profile} viewer={myProfile} showPrivate={isSelf} />
 
-          <Phase3Actions profile={profile} />
-
           <div className="flex gap-2.5 rounded-2xl border border-blue-200 bg-blue-50 p-3.5">
             <ShieldCheck size={20} color="#2563EB" className="shrink-0" />
             <p className="flex-1 text-xs font-semibold leading-[17px] text-blue-900">
@@ -366,6 +364,7 @@ export default function UserDetailScreen({ params }: { params: Promise<{ id: str
           onClose={() => setShowRateSheet(false)}
           onSubmit={async (values) => {
             await submitRating(user.uid, profile.uid, myProfile?.gender ?? 'Other', values);
+            if (!myRating) void notify({ toUid: profile.uid, type: 'rating' });
             const summary = await getRatingSummary(profile.uid).catch(() => null);
             setRatingSummary(summary);
           }}

@@ -13,6 +13,15 @@ const nextConfig: NextConfig = {
           { key: "Permissions-Policy", value: "camera=(self), geolocation=(self), microphone=()" },
         ],
       },
+      // Static artwork: let browsers reuse it between visits instead of re-checking every load.
+      {
+        source: "/:dir(onboarding|icons)/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }],
+      },
+      {
+        source: "/logo.png",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }],
+      },
     ];
   },
 };

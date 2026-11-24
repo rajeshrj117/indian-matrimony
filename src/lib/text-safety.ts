@@ -5,6 +5,8 @@
 // obvious explicit / threatening / scam patterns and produces "abuse signals" that feed the
 // admin moderation dashboard. Tune the lists to your community over time.
 
+import { findProfanity } from '@/lib/profanity';
+
 export type TextVerdict = {
   level: 'allow' | 'warn' | 'block';
   flags: string[];
@@ -96,6 +98,10 @@ export function screenText(input: string, context: 'bio' | 'message' = 'message'
     // Public bio: only the sexual list applies ("I'm a romantic person" is fine in a bio).
     if (SEXUAL.test(normalizeLoose(raw)) && !flags.includes('explicit')) flags.push('explicit');
   }
+  // Multilingual list: English + Tamil, Hindi, Telugu, Kannada, Malayalam (native script and romanized).
+  const prof = findProfanity(raw);
+  if (prof === 'sexual' && !flags.includes('explicit')) flags.push('explicit');
+  if (prof === 'abuse' && !flags.includes('harassment')) flags.push('harassment');
   if (THREAT.test(n)) flags.push('threat');
   if (HARASS.test(n)) flags.push('harassment');
   if (SCAM_MONEY.test(n)) flags.push('scam_money');
@@ -133,4 +139,24 @@ export function screenText(input: string, context: 'bio' | 'message' = 'message'
     };
   }
   return { level: 'allow', flags };
+}
+
+// Screens one labelled form field and returns a message naming the field, or null if it is fine.
+export function screenField(label: string, text: string | undefined | null): { message: string; flags: string[] } | null {
+  const t = (text ?? '').trim();
+  if (!t) return null;
+  const v = screenText(t, 'bio');
+  if (v.level !== 'block') return null;
+  const why = v.flags.includes('explicit') || v.flags.includes('harassment') || v.flags.includes('threat') || v.flags.includes('scam_money')
+    ? 'contains inappropriate or abusive words'
+    : 'has phone numbers, social handles or links';
+  return { message: `Your ${label} ${why}. Please edit it.`, flags: v.flags };
+}
+
+// Names: letters (any Indian script), spaces, dots, apostrophes and hyphens only.
+export function validateName(name: string): string | null {
+  const n = name.trim();
+  if (n.length < 2) return 'Please enter a valid name';
+  if (!/^[\p{L}\p{M}][\p{L}\p{M}\s.'\u2019-]*$/u.test(n)) return 'Name can only contain letters, spaces, dots and hyphens';
+  return null;
 }

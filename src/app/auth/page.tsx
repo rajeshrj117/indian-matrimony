@@ -4,15 +4,19 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Heart, CheckCircle2, ShieldCheck } from 'lucide-react';
 import {
-  RecaptchaVerifier, signInWithPhoneNumber, signInWithRedirect, signInWithPopup, getRedirectResult, GoogleAuthProvider,
+  RecaptchaVerifier, signInWithPhoneNumber, signInWithRedirect, signInWithPopup, signInWithCustomToken, getRedirectResult, GoogleAuthProvider,
   type ConfirmationResult,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { getProfile } from '@/lib/firestore';
 
+// Flip to true to bring back mobile number (OTP) login
+const SHOW_PHONE_LOGIN = false;
+
 export default function AuthScreen() {
   const router = useRouter();
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [showOtp, setShowOtp] = useState(false);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [timer, setTimer] = useState(30);
@@ -99,6 +103,57 @@ export default function AuthScreen() {
     }
   };
 
+  const sendEmailOtp = async () => {
+    setError('');
+    const e = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e)) {
+      setError('Enter a valid email address');
+      return;
+    }
+    setSending(true);
+    try {
+      const res = await fetch('/api/auth/email-otp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: e }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not send OTP. Please try again.');
+      setOtp(['', '', '', '', '', '']);
+      setShowOtp(true);
+      setTimer(60);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not send OTP. Please try again.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const verifyEmailOtp = async () => {
+    setError('');
+    const code = otp.join('');
+    if (code.length < 6) {
+      setError('Enter the 6-digit OTP');
+      return;
+    }
+    setVerifying(true);
+    try {
+      const res = await fetch('/api/auth/email-otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), code }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Invalid OTP. Please try again.');
+      const cred = await signInWithCustomToken(auth, data.token);
+      await afterAuth(cred.user.uid);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invalid OTP. Please try again.');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   const continueWithGoogle = async () => {
     setError('');
     try {
@@ -144,6 +199,8 @@ export default function AuthScreen() {
           <h2 className="text-2xl font-extrabold text-[var(--text)]">Welcome back</h2>
           <p className="mt-1.5 text-[15px] text-[var(--muted)]">Sign in to continue finding real connections</p>
 
+          {SHOW_PHONE_LOGIN && (
+          <>
           <div className="mt-6 rounded-[20px] border border-[var(--border)] bg-[var(--card)] p-4">
             <label className="text-[13px] font-bold tracking-wide text-[var(--text)]">MOBILE NUMBER</label>
             <div className="mt-2.5 flex h-[54px] items-center rounded-2xl border border-[var(--border)] bg-[var(--inputBg)] px-3.5">
@@ -177,6 +234,41 @@ export default function AuthScreen() {
             <span className="text-xs font-bold text-[var(--muted2)]">OR CONTINUE WITH</span>
             <span className="h-px flex-1 bg-[var(--border)]" />
           </div>
+          </>
+          )}
+
+          {!SHOW_PHONE_LOGIN && (
+            <>
+              <div className="mt-6 rounded-[20px] border border-[var(--border)] bg-[var(--card)] p-4">
+                <label className="text-[13px] font-bold tracking-wide text-[var(--text)]">EMAIL</label>
+                <div className="mt-2.5 flex h-[54px] items-center rounded-2xl border border-[var(--border)] bg-[var(--inputBg)] px-3.5">
+                  <input
+                    type="email"
+                    placeholder="Enter your email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="flex-1 bg-transparent text-base font-semibold text-[var(--text)] outline-none placeholder:text-[var(--muted2)]"
+                  />
+                </div>
+                <button
+                  onClick={sendEmailOtp}
+                  disabled={sending}
+                  className="bg-[var(--primary)] mt-3.5 flex h-[52px] w-full items-center justify-center rounded-2xl text-base font-extrabold text-white active:scale-[0.98] disabled:opacity-60"
+                >
+                  {sending ? 'Sending…' : 'Send OTP'}
+                </button>
+                {error && !showOtp && <p className="mt-2 text-center text-[12px] font-semibold text-red-500">{error}</p>}
+                <p className="mt-2 text-center text-[11px] text-[var(--muted2)]">We'll email you a 6-digit code.</p>
+              </div>
+
+              <div className="my-5 flex items-center gap-3">
+                <span className="h-px flex-1 bg-[var(--border)]" />
+                <span className="text-xs font-bold text-[var(--muted2)]">OR CONTINUE WITH</span>
+                <span className="h-px flex-1 bg-[var(--border)]" />
+              </div>
+            </>
+          )}
 
           <button
             onClick={continueWithGoogle}
@@ -186,10 +278,12 @@ export default function AuthScreen() {
             Continue with Google
           </button>
 
+          {SHOW_PHONE_LOGIN && (
           <div className="mt-5 flex items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--inputBg)] p-3">
             <ShieldCheck size={16} color="var(--success)" />
             <span className="text-xs font-semibold text-[var(--muted)]">Your number is never shown on your profile</span>
           </div>
+          )}
           <p className="mt-3 text-center text-[11px] text-[var(--muted2)]">
             By continuing you agree to our{' '}
             <a href="/legal/guidelines" className="font-bold underline">Community Guidelines</a> and{' '}
@@ -206,7 +300,7 @@ export default function AuthScreen() {
           >
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[var(--border)]" />
             <h3 className="text-[22px] font-extrabold text-[var(--text)]">Enter OTP</h3>
-            <p className="mt-1.5 text-[var(--muted)]">Sent to +91 {phone}</p>
+            <p className="mt-1.5 text-[var(--muted)]">{SHOW_PHONE_LOGIN ? `Sent to +91 ${phone}` : `Sent to ${email}`}</p>
 
             <div className="mt-5 flex justify-center gap-2">
               {otp.map((v, i) => (
@@ -235,7 +329,7 @@ export default function AuthScreen() {
               <span className="text-[var(--muted)]">{timer > 0 ? `Resend in ${timer}s` : "Didn't receive?"}</span>
               <button
                 disabled={timer > 0}
-                onClick={handleSendOtp}
+                onClick={SHOW_PHONE_LOGIN ? handleSendOtp : sendEmailOtp}
                 className="font-bold"
                 style={{ color: timer > 0 ? 'var(--muted2)' : 'var(--primary)' }}
               >
@@ -244,7 +338,7 @@ export default function AuthScreen() {
             </div>
 
             <button
-              onClick={verifyOtp}
+              onClick={SHOW_PHONE_LOGIN ? verifyOtp : verifyEmailOtp}
               disabled={verifying}
               className="grad-primary mt-5 flex h-14 w-full items-center justify-center rounded-2xl text-base font-extrabold text-white active:scale-[0.98] disabled:opacity-60"
             >
@@ -252,7 +346,7 @@ export default function AuthScreen() {
             </button>
 
             <button onClick={() => setShowOtp(false)} className="mt-3.5 w-full text-center font-semibold text-[var(--muted)]">
-              Change number
+              {SHOW_PHONE_LOGIN ? 'Change number' : 'Change email'}
             </button>
           </div>
         </div>

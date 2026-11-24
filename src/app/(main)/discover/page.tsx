@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Bell, Search, SlidersHorizontal, X, Heart, User, Sparkles, MapPin, ShieldCheck, Users, MoonStar } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import {
-  fetchSearchPool, getActiveSpotlights, listenActivityNotifications, listenInterestStates, listenShortlist, type InterestState,
+  fetchSearchPool, getActiveSpotlights, getProfileByProfileId, listenActivityNotifications, listenInterestStates, listenShortlist, type InterestState,
 } from '@/lib/firestore';
 import {
   activeFilterCount, defaultFiltersFor, matchesFilters, MUTUAL_MATCH_MIN, mutualCompatibility, normalizeFilters,
@@ -15,6 +15,7 @@ import { horoscopeMatch } from '@/lib/horoscope';
 import { useInterestActions } from '@/lib/useInterestActions';
 import { APP_NAME } from '@/lib/brand';
 import FilterSheet from '@/components/FilterSheet';
+import { normalizeProfileId } from '@/lib/profile-id';
 import { RateSheet } from '@/components/TrustRating';
 import { GetVerifiedPrompt } from '@/components/VerifiedBadges';
 import { useRatings } from '@/lib/useRatings';
@@ -102,8 +103,26 @@ export default function SearchScreen() {
     return () => { u1(); u2(); u3(); };
   }, [user]);
 
+  // Typing a profile ID (ISM1234567 or just the 7 digits) jumps straight to that member, even if
+  // they're outside the current filters or the loaded search pool.
+  const idQuery = filters ? normalizeProfileId(filters.keyword) : null;
+  const [idHit, setIdHit] = useState<Profile | null>(null);
+  useEffect(() => {
+    if (!idQuery) { setIdHit(null); return; } // eslint-disable-line react-hooks/set-state-in-effect
+    let cancelled = false;
+    getProfileByProfileId(idQuery)
+      .then((p) => {
+        if (cancelled) return;
+        const blocked = (profile?.blockedUsers ?? []).includes(p?.uid ?? '');
+        setIdHit(p && p.uid !== user?.uid && !blocked ? p : null);
+      })
+      .catch(() => { if (!cancelled) setIdHit(null); });
+    return () => { cancelled = true; };
+  }, [idQuery, user?.uid, profile?.blockedUsers]);
+
   const results = useMemo(() => {
     if (!filters) return [];
+    if (idQuery && idHit) return [idHit];
     const matching = pool.filter((p) => {
       const st = states[p.uid];
       // Once either side has declined, that profile stays out of each other's results.
@@ -128,7 +147,7 @@ export default function SearchScreen() {
       return ranked.sort((a, b) => (horoscopeMatch(profile, b).overall ?? 0) - (horoscopeMatch(profile, a).overall ?? 0));
     }
     return ranked.sort((a, b) => Number(spotlights.has(b.uid)) - Number(spotlights.has(a.uid)));
-  }, [pool, filters, states, profile, spotlights, chip, dismissed]);
+  }, [pool, filters, states, profile, spotlights, chip, dismissed, idQuery, idHit]);
 
   const ratings = useRatings(user?.uid, profile?.gender, results.slice(0, visible).filter((p) => p.gender === 'Male').map((p) => p.uid));
 
@@ -172,7 +191,7 @@ export default function SearchScreen() {
           <input
             value={filters.keyword}
             onChange={(e) => setFilters({ ...filters, keyword: e.target.value })}
-            placeholder="Search by name, city or profession"
+            placeholder="Search by name, city, profession or ID"
             aria-label="Search profiles"
             className="min-w-0 flex-1 bg-transparent text-[14px] text-[var(--text)] outline-none placeholder:text-[var(--muted2)]"
           />
